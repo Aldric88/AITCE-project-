@@ -12,6 +12,9 @@ def create_user(user_data: dict):
     user_data["role"] = "student"  # default role
     user_data["is_active"] = True
     user_data["verified_seller"] = False  # default: not verified seller
+    user_data["is_email_verified"] = False  # email verification
+    user_data["email_otp"] = None
+    user_data["email_otp_expiry"] = None
     result = users_collection.insert_one(user_data)
     new_user = users_collection.find_one({"_id": result.inserted_id})
     return user_helper(new_user)

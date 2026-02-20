@@ -1,3 +1,569 @@
+@import url("https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --tone-0: #ffffff;
+  --tone-50: #f8f8f7;
+  --tone-100: #ececea;
+  --tone-200: #dededb;
+  --tone-700: #4a4a47;
+  --tone-900: #181817;
+
+  /* Animation timings */
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 350ms;
+  --duration-slower: 500ms;
+
+  /* Easing curves */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-circ: cubic-bezier(0.85, 0, 0.15, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply min-h-screen bg-background text-foreground antialiased;
+    font-family: "Archivo", "Avenir Next", "Segoe UI", sans-serif;
+    letter-spacing: 0.01em;
+    background-image:
+      radial-gradient(circle at 20% -10%, #f4f4f3 0%, transparent 40%),
+      radial-gradient(circle at 80% 0%, #f1f1ef 0%, transparent 35%),
+      linear-gradient(#ffffff, #fdfdfc);
+  }
+
+  code,
+  pre,
+  kbd,
+  samp {
+    font-family: "IBM Plex Mono", "SFMono-Regular", Menlo, monospace;
+  }
+
+  ::selection {
+    background: #111111;
+    color: #ffffff;
+  }
+
+  /* Smooth scroll behavior */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* ========== ENTRANCE ANIMATIONS ========== */
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeInDown {
+    from {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideInLeft {
+    from {
+      opacity: 0;
+      transform: translateX(-30px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes slideInRight {
+    from {
+      opacity: 0;
+      transform: translateX(30px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes scaleInBounce {
+    0% {
+      opacity: 0;
+      transform: scale(0.3);
+    }
+
+    50% {
+      transform: scale(1.05);
+    }
+
+    70% {
+      transform: scale(0.97);
+    }
+
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes riseIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* ========== LOADING ANIMATIONS ========== */
+
+  @keyframes shimmer {
+    0% {
+      background-position: -1000px 0;
+    }
+
+    100% {
+      background-position: 1000px 0;
+    }
+  }
+
+  @keyframes pulse {
+
+    0%,
+    100% {
+      opacity: 1;
+    }
+
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes bounce {
+
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  /* ========== SPECIAL EFFECTS ========== */
+
+  @keyframes ripple {
+    to {
+      transform: scale(4);
+      opacity: 0;
+    }
+  }
+
+  @keyframes float {
+
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  @keyframes wiggle {
+
+    0%,
+    100% {
+      transform: rotate(0deg);
+    }
+
+    25% {
+      transform: rotate(-3deg);
+    }
+
+    75% {
+      transform: rotate(3deg);
+    }
+  }
+
+  /* ========== ANIMATION UTILITY CLASSES ========== */
+
+  .fade-in {
+    animation: fadeIn var(--duration-normal) var(--ease-out-expo) both;
+  }
+
+  .fade-in-up {
+    animation: fadeInUp var(--duration-normal) var(--ease-out-expo) both;
+  }
+
+  .fade-in-down {
+    animation: fadeInDown var(--duration-normal) var(--ease-out-expo) both;
+  }
+
+  .slide-in-left {
+    animation: slideInLeft var(--duration-normal) var(--ease-out-expo) both;
+  }
+
+  .slide-in-right {
+    animation: slideInRight var(--duration-normal) var(--ease-out-expo) both;
+  }
+
+  .scale-in {
+    animation: scaleIn var(--duration-normal) var(--ease-in-out-circ) both;
+  }
+
+  .scale-in-bounce {
+    animation: scaleInBounce var(--duration-slow) var(--ease-spring) both;
+  }
+
+  .rise-in {
+    animation: riseIn 260ms ease-out both;
+  }
+
+  /* Stagger delays for lists */
+  .stagger-1 {
+    animation-delay: 50ms;
+  }
+
+  .stagger-2 {
+    animation-delay: 100ms;
+  }
+
+  .stagger-3 {
+    animation-delay: 150ms;
+  }
+
+  .stagger-4 {
+    animation-delay: 200ms;
+  }
+
+  .stagger-5 {
+    animation-delay: 250ms;
+  }
+
+  .stagger-6 {
+    animation-delay: 300ms;
+  }
+
+  .stagger-7 {
+    animation-delay: 350ms;
+  }
+
+  .stagger-8 {
+    animation-delay: 400ms;
+  }
+
+  /* ========== ENHANCED CARD COMPONENTS ========== */
+
+  .mesh-panel {
+    background-image:
+      radial-gradient(circle at 10% 10%, rgba(22, 163, 74, 0.08), transparent 28%),
+      radial-gradient(circle at 95% 0%, rgba(14, 116, 144, 0.09), transparent 26%),
+      linear-gradient(140deg, rgba(255, 255, 255, 0.94), rgba(243, 244, 246, 0.95));
+  }
+
+  .elevate-card {
+    box-shadow:
+      0 1px 2px rgba(15, 23, 42, 0.08),
+      0 12px 28px rgba(15, 23, 42, 0.08);
+    transition: all var(--duration-normal) var(--ease-out-expo);
+  }
+
+  .elevate-card:hover {
+    box-shadow:
+      0 4px 6px rgba(15, 23, 42, 0.1),
+      0 20px 40px rgba(15, 23, 42, 0.12);
+    transform: translateY(-4px);
+  }
+
+  .minimal-card {
+    @apply border border-neutral-200 bg-white;
+    transition: all var(--duration-normal) var(--ease-out-expo);
+  }
+
+  .minimal-card:hover {
+    border-color: var(--tone-900);
+    box-shadow: 10px 10px 0 0 rgba(17, 17, 17, 0.1);
+    transform: translateY(-3px);
+  }
+
+  .panel-depth {
+    box-shadow: 10px 10px 0 0 rgba(17, 17, 17, 0.12);
+    transition: all var(--duration-normal) var(--ease-out-expo);
+  }
+
+  .panel-depth:hover {
+    box-shadow: 12px 12px 0 0 rgba(17, 17, 17, 0.15);
+  }
+
+  /* Glassmorphism effect */
+  .glass-panel {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+
+  /* ========== ENHANCED BUTTONS ========== */
+
+  .btn-primary {
+    @apply border border-black bg-primary px-6 py-3 text-sm font-semibold uppercase tracking-wider text-primary-foreground;
+    transition: all var(--duration-fast) var(--ease-out-expo);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-primary:hover {
+    @apply bg-neutral-800;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .btn-primary:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .btn-secondary {
+    @apply border border-black bg-white px-6 py-3 text-sm font-semibold uppercase tracking-wider text-black;
+    transition: all var(--duration-fast) var(--ease-out-expo);
+  }
+
+  .btn-secondary:hover {
+    @apply bg-gray-100;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  .btn-secondary:active {
+    transform: translateY(0);
+  }
+
+  .btn-ghost {
+    @apply px-4 py-2 text-black uppercase tracking-wide text-sm;
+    transition: all var(--duration-fast) ease-out;
+  }
+
+  .btn-ghost:hover {
+    @apply bg-gray-100;
+  }
+
+  /* Magnetic button effect */
+  .btn-magnetic {
+    transition: transform var(--duration-fast) var(--ease-out-expo);
+  }
+
+  /* Ripple effect */
+  .btn-ripple {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-ripple::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.5);
+    transform: translate(-50%, -50%);
+    transition: width var(--duration-slow) ease-out, height var(--duration-slow) ease-out;
+  }
+
+  .btn-ripple:active::after {
+    width: 300px;
+    height: 300px;
+    opacity: 0;
+  }
+
+  /* ========== ENHANCED INPUTS ========== */
+
+  .input-field {
+    @apply w-full border border-gray-300 bg-white px-4 py-3 text-black placeholder-gray-400;
+    transition: all var(--duration-fast) var(--ease-out-expo);
+  }
+
+  .input-field:focus {
+    @apply border-black outline-none ring-2 ring-black/15;
+    transform: translateY(-1px);
+  }
+
+  .input-surface {
+    @apply w-full appearance-none border border-black/80 bg-white px-4 py-4 text-sm font-semibold uppercase tracking-wide text-black;
+    transition: all var(--duration-fast) var(--ease-out-expo);
+  }
+
+  .input-surface:focus {
+    @apply border-black bg-neutral-50 outline-none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  .input-surface:hover {
+    @apply bg-neutral-50;
+  }
+
+  /* ========== BADGES ========== */
+
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 text-xs font-semibold;
+    transition: all var(--duration-fast) ease-out;
+  }
+
+  .badge-outline {
+    @apply border border-current;
+  }
+
+  .badge:hover {
+    transform: scale(1.05);
+  }
+
+  /* ========== SHIMMER LOADING EFFECT ========== */
+
+  .shimmer {
+    background: linear-gradient(90deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.4) 50%,
+        rgba(255, 255, 255, 0) 100%);
+    background-size: 1000px 100%;
+    animation: shimmer 2s infinite linear;
+  }
+
+  .shimmer-skeleton {
+    @apply bg-gray-200;
+    background-image: linear-gradient(90deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.6) 50%,
+        rgba(255, 255, 255, 0) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  /* ========== UTILITY ANIMATIONS ========== */
+
+  .pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  .spin-slow {
+    animation: spin 3s linear infinite;
+  }
+
+  .bounce-slow {
+    animation: bounce 2s infinite;
+  }
+
+  .float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .wiggle:hover {
+    animation: wiggle 0.5s ease-in-out;
+  }
+
+  /* ========== TRANSITIONS ========== */
+
+  .transition-smooth {
+    transition: all var(--duration-normal) var(--ease-out-expo);
+  }
+
+  .transition-spring {
+    transition: all var(--duration-slow) var(--ease-spring);
+  }
+
+  /* ========== PAGE TRANSITIONS ========== */
+
+  .page-enter {
+    animation: fadeInUp var(--duration-slow) var(--ease-out-expo) both;
+  }
+
+  .page-exit {
+    animation: fadeIn var(--duration-fast) ease-out reverse both;
+  }
+
+  /* ========== SCROLL ANIMATIONS ========== */
+
+  .scroll-fade-in {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity var(--duration-slow) var(--ease-out-expo),
+      transform var(--duration-slow) var(--ease-out-expo);
+  }
+
+  .scroll-fade-in.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

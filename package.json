@@ -1,4 +1,8 @@
 {
+  "scripts": {
+    "dev:up": "./scripts/dev-up.sh",
+    "dev:down": "./scripts/dev-down.sh"
+  },
   "dependencies": {
     "react-hot-toast": "^2.6.0"
   }

@@ -22,8 +22,10 @@ def raise_dispute(note_id: str, data: DisputeCreate, current_user=Depends(get_cu
     # must have purchased
     purchase = purchases_collection.find_one({
         "note_id": ObjectId(note_id),
-        "buyer_id": ObjectId(current_user["id"]),
-        "status": "success"
+        "$or": [
+            {"buyer_id": ObjectId(current_user["id"]), "status": "success"},
+            {"user_id": ObjectId(current_user["id"]), "status": {"$in": ["success", "paid", "free"]}},
+        ],
     })
     if not purchase:
         raise HTTPException(status_code=403, detail="You can dispute only after purchase")

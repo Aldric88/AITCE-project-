@@ -15,6 +15,10 @@ class NoteCreate(BaseModel):
     unit: Optional[str] = None
 
     tags: List[str] = []
+    
+    # Discovery fields
+    exam_tag: Optional[Literal["Mid-Sem", "End-Sem", "Quick Revision", "One-Night Prep"]] = None
+    
     note_type: NoteType
 
     # file_url for uploaded files (later from S3/local)
@@ -37,6 +41,9 @@ class NoteResponse(BaseModel):
     subject: str
     unit: Optional[str]
     tags: List[str]
+    
+    exam_tag: Optional[str]
+    
     note_type: NoteType
 
     file_url: Optional[str]
@@ -44,6 +51,13 @@ class NoteResponse(BaseModel):
 
     status: NoteStatus
     uploader_id: str
+    
+    # Stats
+    views: int = 0
+    downloads: int = 0
+    likes: int
+    avg_rating: float
+    review_count: int
 
 
 class NoteUpdate(BaseModel):
@@ -54,6 +68,8 @@ class NoteUpdate(BaseModel):
     semester: Optional[int] = None
     subject: Optional[str] = None
     unit: Optional[str] = None
+    
+    exam_tag: Optional[Literal["Mid-Sem", "End-Sem", "Quick Revision", "One-Night Prep"]] = None
 
     tags: Optional[List[str]] = None
 

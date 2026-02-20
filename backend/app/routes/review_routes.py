@@ -33,8 +33,10 @@ def add_review(note_id: str, data: ReviewCreate, current_user=Depends(get_curren
     if note.get("is_paid", False):
         purchase = purchases_collection.find_one({
             "note_id": ObjectId(note_id),
-            "buyer_id": ObjectId(current_user["id"]),
-            "status": "success"
+            "$or": [
+                {"buyer_id": ObjectId(current_user["id"]), "status": "success"},
+                {"user_id": ObjectId(current_user["id"]), "status": {"$in": ["success", "paid", "free"]}},
+            ],
         })
         verified_purchase = True if purchase else False
 

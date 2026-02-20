@@ -32,21 +32,21 @@ export default function ReportModal({ open, note, onClose }) {
   if (!open || !note) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 w-full max-w-md">
-        <h3 className="text-xl font-semibold mb-4">Report Note</h3>
-        <p className="text-zinc-400 mb-4">{note.title}</p>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+      <div className="border border-black bg-white p-6 w-full max-w-md shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+        <h3 className="text-xl font-black uppercase tracking-wide mb-4 text-black">Report Note</h3>
+        <p className="text-gray-500 font-bold uppercase tracking-wide text-xs mb-6 border-b border-gray-100 pb-2">{note.title}</p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-6">
           {/* Reason */}
           <div>
-            <label className="block text-sm font-medium text-zinc-300 mb-2">
+            <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">
               Reason
             </label>
             <select
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-100 p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full p-3 bg-white border border-gray-300 focus:border-black focus:outline-none transition-all rounded-none text-black appearance-none"
             >
               <option value="spam">Spam</option>
               <option value="fake">Fake Content</option>
@@ -58,31 +58,31 @@ export default function ReportModal({ open, note, onClose }) {
 
           {/* Message */}
           <div>
-            <label className="block text-sm font-medium text-zinc-300 mb-2">
+            <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">
               Additional Details
             </label>
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               rows={3}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-100 p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full p-3 bg-white border border-gray-300 focus:border-black focus:outline-none transition-all rounded-none text-black"
               placeholder="Please provide more details about your report..."
             />
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3 justify-end">
+          <div className="flex gap-3 justify-end pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition"
+              className="px-6 py-2 border border-black text-black bg-white hover:bg-gray-100 transition font-bold uppercase text-sm tracking-wide"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-2 bg-red-600 text-white border border-red-600 hover:bg-red-500 transition disabled:opacity-50 disabled:cursor-not-allowed font-bold uppercase text-sm tracking-wide"
             >
               {loading ? "Submitting..." : "Submit Report"}
             </button>

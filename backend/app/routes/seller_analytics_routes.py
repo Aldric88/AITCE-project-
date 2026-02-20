@@ -8,19 +8,48 @@ router = APIRouter(prefix="/seller", tags=["Seller Dashboard"])
 @router.get("/dashboard")
 def seller_dashboard(current_user=Depends(get_current_user)):
     # notes uploaded by seller
-    my_notes = list(notes_collection.find({"uploader_id": ObjectId(current_user["id"])}))
+    my_notes = list(
+        notes_collection.find(
+            {"uploader_id": ObjectId(current_user["id"])},
+            {"title": 1, "subject": 1, "price": 1, "is_paid": 1},
+        )
+    )
 
     note_ids = [n["_id"] for n in my_notes]
+    if not note_ids:
+        return {
+            "seller_id": current_user["id"],
+            "total_notes": 0,
+            "total_sales": 0,
+            "total_earnings": 0,
+            "top_notes": [],
+        }
 
-    # purchases of seller notes
-    sales = list(purchases_collection.find({"note_id": {"$in": note_ids}, "status": "success"}))
-
-    total_sales = len(sales)
-    total_earnings = sum([s.get("amount", 0) for s in sales])
+    sales_by_note = {}
+    total_sales = 0
+    total_earnings = 0
+    for row in purchases_collection.aggregate(
+        [
+            {"$match": {"note_id": {"$in": note_ids}, "status": "success"}},
+            {
+                "$group": {
+                    "_id": "$note_id",
+                    "sales": {"$sum": 1},
+                    "earnings": {"$sum": {"$toInt": {"$ifNull": ["$amount", 0]}}},
+                }
+            },
+        ]
+    ):
+        nid = row["_id"]
+        sales = int(row.get("sales", 0))
+        earnings = int(row.get("earnings", 0))
+        sales_by_note[nid] = {"sales": sales, "earnings": earnings}
+        total_sales += sales
+        total_earnings += earnings
 
     top_notes = []
     for n in my_notes:
-        note_sales = purchases_collection.count_documents({"note_id": n["_id"], "status": "success"})
+        note_sales = sales_by_note.get(n["_id"], {}).get("sales", 0)
         top_notes.append({
             "id": str(n["_id"]),
             "title": n.get("title"),

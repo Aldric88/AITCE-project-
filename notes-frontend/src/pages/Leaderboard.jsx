@@ -11,31 +11,37 @@ export default function Leaderboard() {
 
   return (
     <Layout title="Leaderboard">
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
-        {data.length === 0 ? (
-          <p className="text-zinc-400">No leaderboard data yet.</p>
-        ) : (
-          <div className="space-y-3">
-            {data.map((u, i) => (
-              <div
-                key={u.user_id}
-                className="flex items-center justify-between rounded-xl bg-zinc-950 border border-zinc-800 px-4 py-3"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="text-zinc-300 font-bold">#{i + 1}</div>
-                  <div>
-                    <div className="font-semibold">{u.name}</div>
-                    <div className="text-sm text-zinc-500">{u.dept}</div>
+      <div className="max-w-2xl mx-auto">
+        <div className="border border-black bg-white p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+          <h2 className="text-2xl font-black uppercase tracking-tighter text-black mb-8 border-b-2 border-black pb-4">Leaderboard</h2>
+
+          {data.length === 0 ? (
+            <div className="text-center py-12 border border-dashed border-gray-300 bg-gray-50">
+              <p className="text-gray-400 font-bold uppercase text-sm">No leaderboard data yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {data.map((u, i) => (
+                <div
+                  key={u.user_id}
+                  className="flex items-center justify-between border border-black bg-white px-4 py-4 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="text-gray-300 font-black text-xl w-8">#{i + 1}</div>
+                    <div>
+                      <div className="font-bold text-black uppercase tracking-wide">{u.name}</div>
+                      <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{u.dept}</div>
+                    </div>
+                  </div>
+
+                  <div className="text-black font-black text-lg">
+                    ⭐ {u.total_points}
                   </div>
                 </div>
-
-                <div className="text-yellow-300 font-semibold">
-                  ⭐ {u.total_points}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </Layout>
   );

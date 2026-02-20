@@ -10,82 +10,85 @@ export default function SellerDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let active = true;
+
     const load = async () => {
       try {
         setLoading(true);
         const res = await api.get("/seller/dashboard");
-        setData(res.data);
+        if (active) setData(res.data);
       } catch (err) {
         toast.error(err.response?.data?.detail || "Failed to load seller dashboard");
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
+
     load();
+    return () => {
+      active = false;
+    };
   }, []);
 
   return (
     <Layout title="Seller Dashboard">
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+      <div className="space-y-8">
         {loading ? (
           <Spinner label="Loading seller stats..." />
         ) : !data ? (
-          <p className="text-zinc-400">No data available.</p>
+          <div className="border border-dashed border-gray-300 p-12 text-center">
+            <p className="text-sm font-bold uppercase tracking-widest text-gray-500">No data available yet</p>
+          </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
-                <p className="text-zinc-500 text-sm">Total Notes</p>
-                <p className="text-2xl font-bold">{data.total_notes}</p>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+              <div className="minimal-card p-8">
+                <p className="mb-2 text-xs font-bold uppercase tracking-widest text-gray-500">Total Notes</p>
+                <p className="text-5xl font-black text-black">{data.total_notes}</p>
               </div>
 
-              <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
-                <p className="text-zinc-500 text-sm">Total Sales</p>
-                <p className="text-2xl font-bold">{data.total_sales}</p>
+              <div className="minimal-card p-8">
+                <p className="mb-2 text-xs font-bold uppercase tracking-widest text-gray-500">Total Sales</p>
+                <p className="text-5xl font-black text-black">{data.total_sales}</p>
               </div>
 
-              <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
-                <p className="text-zinc-500 text-sm">Total Earnings</p>
-                <p className="text-2xl font-bold text-yellow-300">
-                  ₹{data.total_earnings}
-                </p>
+              <div className="minimal-card border-black bg-black p-8 text-white">
+                <p className="mb-2 text-xs font-bold uppercase tracking-widest text-white/70">Total Earnings</p>
+                <p className="text-5xl font-black">INR {data.total_earnings}</p>
               </div>
             </div>
 
-            <h3 className="text-xl font-semibold mt-6 mb-3">Top Notes</h3>
-
-            {data.top_notes.length === 0 ? (
-              <p className="text-zinc-400">No sales yet.</p>
-            ) : (
-              <div className="space-y-3">
-                {data.top_notes.map((n) => (
-                  <Link
-                    key={n.id}
-                    to={`/notes/${n.id}`}
-                    className="block rounded-xl border border-zinc-800 bg-zinc-950 p-4 hover:bg-zinc-900 transition"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-semibold">{n.title}</h4>
-                        <p className="text-sm text-zinc-500">
-                          {n.subject} • Sales: {n.sales}
-                        </p>
-                      </div>
-
-                      {n.is_paid ? (
-                        <span className="text-xs px-3 py-1 rounded-full bg-yellow-600/30 text-yellow-200 border border-yellow-500/30">
-                          ₹{n.price}
-                        </span>
-                      ) : (
-                        <span className="text-xs px-3 py-1 rounded-full bg-emerald-600/20 text-emerald-200 border border-emerald-500/30">
-                          FREE
-                        </span>
-                      )}
-                    </div>
-                  </Link>
-                ))}
+            <div className="mt-12">
+              <div className="mb-6 flex items-center justify-between">
+                <h3 className="text-2xl font-black uppercase tracking-tight text-black">Top Performing Notes</h3>
+                <div className="ml-6 hidden h-px flex-1 bg-gray-200 sm:block" />
               </div>
-            )}
+
+              {data.top_notes.length === 0 ? (
+                <div className="border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
+                  <p className="text-xs font-bold uppercase tracking-widest text-gray-500">No sales activity yet</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4">
+                  {data.top_notes.map((n) => (
+                    <Link key={n.id} to={`/notes/${n.id}`} className="minimal-card block p-6 hover:bg-zinc-50">
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <h4 className="text-lg font-bold text-zinc-900">{n.title}</h4>
+                          <p className="mt-1 text-xs font-bold uppercase tracking-wide text-zinc-500">
+                            {n.subject} • {n.sales} sales
+                          </p>
+                        </div>
+
+                        <span className="border border-black px-4 py-2 text-sm font-bold uppercase">
+                          {n.is_paid ? `INR ${n.price}` : "Free"}
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           </>
         )}
       </div>

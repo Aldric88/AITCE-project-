@@ -1,68 +1,61 @@
-import { useEffect, useState } from "react";
+import { memo } from "react";
 import Layout from "../components/Layout";
-import api from "../api/axios";
-import Spinner from "../components/Spinner";
+import NoteCard from "../components/NoteCard";
+import SkeletonCard from "../components/SkeletonCard";
+import { useApiQuery, apiCachedFetcher } from "../api/useApiQuery";
+import { ENDPOINTS } from "../api/endpoints";
 import toast from "react-hot-toast";
-import { Link } from "react-router-dom";
 
-export default function Trending() {
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
+const Trending = memo(function Trending() {
+  const trendingQuery = useApiQuery(
+    "trending:notes",
+    apiCachedFetcher(ENDPOINTS.notes.trending),
+    {
+      staleTimeMs: 30000,
+      onError: () => toast.error("Failed to load trending notes"),
+    }
+  );
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        setLoading(true);
-        const res = await api.get("/notes/trending");
-        setData(res.data);
-      } catch (err) {
-        toast.error(err.response?.data?.detail || "Failed to load trending");
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, []);
+  const notesData = trendingQuery.data || [];
 
   return (
     <Layout title="Trending Notes">
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
-        {loading ? (
-          <Spinner label="Loading trending notes..." />
-        ) : data.length === 0 ? (
-          <p className="text-zinc-400">No trending notes yet.</p>
-        ) : (
-          <div className="space-y-3">
-            {data.map((n, i) => (
-              <Link
-                key={n.id}
-                to={`/notes/${n.id}`}
-                className="block rounded-xl border border-zinc-800 bg-zinc-950 p-4 hover:bg-zinc-900 transition"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-zinc-400 text-sm">#{i + 1} • 👀 {n.views} views</p>
-                    <h3 className="text-lg font-semibold">{n.title}</h3>
-                    <p className="text-zinc-500 text-sm">
-                      {n.subject} • Unit {n.unit} • Sem {n.semester} • {n.dept}
-                    </p>
-                  </div>
+      <div className="page-enter">
+        <div className="mb-8 fade-in">
+          <p className="text-sm font-bold uppercase tracking-wide text-gray-600">
+            Most popular notes right now
+          </p>
+        </div>
 
-                  {n.is_paid ? (
-                    <span className="text-xs px-3 py-1 rounded-full bg-yellow-600/30 text-yellow-200 border border-yellow-500/30">
-                      ₹{n.price}
-                    </span>
-                  ) : (
-                    <span className="text-xs px-3 py-1 rounded-full bg-emerald-600/20 text-emerald-200 border border-emerald-500/30">
-                      FREE
-                    </span>
-                  )}
-                </div>
-              </Link>
+        {trendingQuery.isLoading ? (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className={`fade-in stagger-${Math.min(i % 6 + 1, 8)}`}>
+                <SkeletonCard />
+              </div>
+            ))}
+          </div>
+        ) : notesData.length === 0 ? (
+          <div className="border-2 border-dashed border-gray-300 bg-gray-50 p-12 text-center fade-in">
+            <h3 className="mb-2 text-xl font-black uppercase tracking-wide text-black">No trending notes</h3>
+            <p className="text-sm font-bold uppercase text-gray-500">Check back later</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {notesData.map((note, index) => (
+              <div key={note.id} className={`fade-in-up stagger-${Math.min((index % 6) + 1, 8)}`}>
+                <NoteCard
+                  note={note}
+                  hasAccess={note.has_access}
+                  ribbon={index < 3 ? `#${index + 1}` : null}
+                />
+              </div>
             ))}
           </div>
         )}
       </div>
     </Layout>
   );
-}
+});
+
+export default Trending;

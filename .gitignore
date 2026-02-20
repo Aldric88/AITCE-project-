@@ -25,6 +25,7 @@ pids
 *.pid
 *.seed
 *.pid.lock
+.run/
 
 # Coverage directory used by tools like istanbul
 coverage/
@@ -81,6 +82,8 @@ jspm_packages/
 # Gatsby files
 .cache/
 public
+!notes-frontend/public/
+!notes-frontend/public/**
 
 # Vuepress build output
 .vuepress/dist
@@ -134,6 +137,7 @@ MANIFEST
 
 # PyInstaller
 *.manifest
+!notes-frontend/public/manifest.webmanifest
 *.spec
 
 # Installer logs

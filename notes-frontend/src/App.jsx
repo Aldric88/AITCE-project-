@@ -1,129 +1,79 @@
+import { Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Signup from "./pages/Signup";
-import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import UploadNote from "./pages/UploadNote";
-import Leaderboard from "./pages/Leaderboard";
-import Moderation from "./pages/Moderation";
-import MyUploads from "./pages/MyUploads";
-import MyBookmarks from "./pages/MyBookmarks";
-import MyPurchases from "./pages/MyPurchases";
-import Viewer from "./pages/Viewer";
-import NoteDetails from "./pages/NoteDetails";
-import Trending from "./pages/Trending";
-import SellerDashboard from "./pages/SellerDashboard";
 import ProtectedRoute from "./auth/ProtectedRoute";
 
-console.log("App.jsx loaded");
+const Signup = lazy(() => import("./pages/Signup"));
+const Login = lazy(() => import("./pages/Login"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const UploadNote = lazy(() => import("./pages/UploadNote"));
+const Leaderboard = lazy(() => import("./pages/Leaderboard"));
+const ModerationPanel = lazy(() => import("./pages/ModerationPanel"));
+const RejectedNotes = lazy(() => import("./pages/RejectedNotes"));
+const ModerationDashboard = lazy(() => import("./pages/ModerationDashboard"));
+const Requests = lazy(() => import("./pages/Requests"));
+const Bundles = lazy(() => import("./pages/Bundles"));
+const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
+const FollowingFeed = lazy(() => import("./pages/FollowingFeed"));
+const Profile = lazy(() => import("./pages/Profile"));
+const CreatorProfile = lazy(() => import("./pages/CreatorProfile"));
+const TopCreators = lazy(() => import("./pages/TopCreators"));
+const Notifications = lazy(() => import("./pages/Notifications"));
+const SecureViewer = lazy(() => import("./pages/SecureViewer"));
+const OpsDashboard = lazy(() => import("./pages/OpsDashboard"));
+const ClassSpaces = lazy(() => import("./pages/ClassSpaces"));
+const Monetization = lazy(() => import("./pages/Monetization"));
+const AdminAnalytics = lazy(() => import("./pages/AdminAnalytics"));
+const AdminDomainCandidates = lazy(() => import("./pages/AdminDomainCandidates"));
+const MyUploads = lazy(() => import("./pages/MyUploads"));
+const MyBookmarks = lazy(() => import("./pages/MyBookmarks"));
+const MyPurchases = lazy(() => import("./pages/MyPurchases"));
+const Viewer = lazy(() => import("./pages/Viewer"));
+const NoteDetails = lazy(() => import("./pages/NoteDetails"));
+const Trending = lazy(() => import("./pages/Trending"));
+const SellerDashboard = lazy(() => import("./pages/SellerDashboard"));
+
+function Protected(element) {
+  return <ProtectedRoute>{element}</ProtectedRoute>;
+}
 
 export default function App() {
-  console.log("App component rendering");
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Signup />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/login" element={<Login />} />
-
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/upload"
-          element={
-            <ProtectedRoute>
-              <UploadNote />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/leaderboard"
-          element={
-            <ProtectedRoute>
-              <Leaderboard />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/moderation"
-          element={
-            <ProtectedRoute>
-              <Moderation />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/my-uploads"
-          element={
-            <ProtectedRoute>
-              <MyUploads />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/my-bookmarks"
-          element={
-            <ProtectedRoute>
-              <MyBookmarks />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/my-purchases"
-          element={
-            <ProtectedRoute>
-              <MyPurchases />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/notes/:noteId"
-          element={
-            <ProtectedRoute>
-              <NoteDetails />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/trending"
-          element={
-            <ProtectedRoute>
-              <Trending />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/seller-dashboard"
-          element={
-            <ProtectedRoute>
-              <SellerDashboard />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/viewer"
-          element={
-            <ProtectedRoute>
-              <Viewer />
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
+      <Suspense fallback={<div className="p-6 text-sm font-bold uppercase text-gray-500">Loading...</div>}>
+        <Routes>
+          <Route path="/" element={<Signup />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/dashboard" element={Protected(<Dashboard />)} />
+          <Route path="/upload" element={Protected(<UploadNote />)} />
+          <Route path="/upload-note" element={Protected(<UploadNote />)} />
+          <Route path="/leaderboard" element={Protected(<Leaderboard />)} />
+          <Route path="/moderation" element={Protected(<ModerationPanel />)} />
+          <Route path="/moderation-dashboard" element={Protected(<ModerationDashboard />)} />
+          <Route path="/rejected-notes" element={Protected(<RejectedNotes />)} />
+          <Route path="/my-uploads" element={Protected(<MyUploads />)} />
+          <Route path="/my-bookmarks" element={Protected(<MyBookmarks />)} />
+          <Route path="/my-purchases" element={Protected(<MyPurchases />)} />
+          <Route path="/notes/:noteId" element={Protected(<NoteDetails />)} />
+          <Route path="/trending" element={Protected(<Trending />)} />
+          <Route path="/seller-dashboard" element={Protected(<SellerDashboard />)} />
+          <Route path="/requests" element={Protected(<Requests />)} />
+          <Route path="/bundles" element={Protected(<Bundles />)} />
+          <Route path="/spaces" element={Protected(<ClassSpaces />)} />
+          <Route path="/monetization" element={Protected(<Monetization />)} />
+          <Route path="/admin-analytics" element={Protected(<AdminAnalytics />)} />
+          <Route path="/admin-domain-candidates" element={Protected(<AdminDomainCandidates />)} />
+          <Route path="/verify-email" element={Protected(<VerifyEmail />)} />
+          <Route path="/following" element={Protected(<FollowingFeed />)} />
+          <Route path="/profile" element={Protected(<Profile />)} />
+          <Route path="/creator/:creatorId" element={Protected(<CreatorProfile />)} />
+          <Route path="/top-creators" element={Protected(<TopCreators />)} />
+          <Route path="/notifications" element={Protected(<Notifications />)} />
+          <Route path="/ops-dashboard" element={Protected(<OpsDashboard />)} />
+          <Route path="/secure-viewer/:noteId" element={Protected(<SecureViewer />)} />
+          <Route path="/viewer" element={Protected(<Viewer />)} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }

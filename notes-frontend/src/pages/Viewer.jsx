@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import Layout from "../components/Layout";
 import { useAuth } from "../auth/AuthContext";
@@ -14,14 +14,12 @@ export default function Viewer() {
   const [fileBlobUrl, setFileBlobUrl] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const loadSecureFile = async () => {
+  const loadSecureFile = useCallback(async () => {
+    if (!note?.id) return;
+
     try {
       setLoading(true);
-
-      const res = await api.get(`/secure/note/${note.id}/file`, {
-        responseType: "blob",
-      });
-
+      const res = await api.get(`/secure/note/${note.id}/file`, { responseType: "blob" });
       const blobUrl = URL.createObjectURL(res.data);
       setFileBlobUrl(blobUrl);
     } catch (err) {
@@ -29,7 +27,7 @@ export default function Viewer() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [note?.id]);
 
   useEffect(() => {
     const disableRightClick = (e) => e.preventDefault();
@@ -38,13 +36,19 @@ export default function Viewer() {
   }, []);
 
   useEffect(() => {
-    if (note?.id) loadSecureFile();
-  }, [note?.id]);
+    loadSecureFile();
+  }, [loadSecureFile]);
+
+  useEffect(() => {
+    return () => {
+      if (fileBlobUrl) URL.revokeObjectURL(fileBlobUrl);
+    };
+  }, [fileBlobUrl]);
 
   if (!note) {
     return (
       <Layout title="Viewer">
-        <p className="text-zinc-400">Note not found.</p>
+        <p className="text-gray-500">Note not found.</p>
       </Layout>
     );
   }
@@ -53,35 +57,35 @@ export default function Viewer() {
 
   return (
     <Layout title="Secure Viewer">
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 relative overflow-hidden">
-        <h2 className="text-2xl font-semibold">{note.title}</h2>
+      <div className="relative overflow-hidden border border-black bg-white p-6">
+        <h2 className="text-2xl font-semibold text-black">{note.title}</h2>
 
-        {/* watermark */}
-        <div className="absolute top-6 right-6 opacity-20 text-sm pointer-events-none select-none">
-          {watermarkText}
-        </div>
+        <div className="pointer-events-none absolute right-6 top-6 text-sm opacity-20">{watermarkText}</div>
 
         {loading ? (
           <div className="mt-4">
             <Spinner label="Loading secure note..." />
           </div>
         ) : fileBlobUrl ? (
-          <div className="mt-4 rounded-xl overflow-hidden border border-zinc-800">
-            <iframe
-              src={fileBlobUrl}
-              width="100%"
-              height="650px"
-              className="bg-zinc-950"
-              title="Note Viewer"
-            />
+          <div className="relative mt-4 w-full overflow-hidden border border-black bg-gray-100">
+            <iframe src={fileBlobUrl} width="100%" height="650px" className="bg-gray-100" title="Secure Viewer" />
+
+            <div className="pointer-events-none absolute inset-0 opacity-15">
+              <div className="flex h-full w-full items-center justify-center">
+                <p
+                  className="rotate-[-25deg] select-none text-6xl font-bold text-white"
+                  style={{ whiteSpace: "pre-line", textAlign: "center" }}
+                >
+                  {user?.name}\n{user?.email}
+                </p>
+              </div>
+            </div>
           </div>
         ) : (
-          <p className="text-zinc-400 mt-4">Unable to load file.</p>
+          <p className="mt-4 text-gray-500">Unable to load file.</p>
         )}
 
-        <p className="text-xs text-zinc-500 mt-3">
-          ✅ This file is streamed securely using JWT. Direct URL access is blocked.
-        </p>
+        <p className="mt-3 text-xs text-gray-500">File is streamed securely using JWT. Direct URL access is blocked.</p>
       </div>
     </Layout>
   );

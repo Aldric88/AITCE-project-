@@ -1,5 +1,6 @@
 import os
 import time
+import hashlib
 from bson import ObjectId
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 
@@ -15,12 +16,20 @@ ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".jpg", ".jpeg", ".png"}
 MAX_FILE_SIZE_MB = 15
 MAX_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 
-# Local upload directory
-UPLOAD_DIR = "uploads"
+# Local private upload directory (not publicly mounted)
+UPLOAD_DIR = "uploads/private"
 
 
 def get_file_extension(filename: str) -> str:
     return os.path.splitext(filename)[1].lower()
+
+
+def sha256_file(file_path: str) -> str:
+    h = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 @router.post("/upload")
@@ -80,8 +89,29 @@ async def upload_file(
             os.remove(save_path)
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
-    # Public URL served via StaticFiles (in main.py)
-    file_url = f"/uploads/{unique_filename}"
+    # ✅ Compute file hash and check for duplicates
+    file_hash = sha256_file(save_path)
+    
+    # ✅ duplicate check
+    existing = uploads_collection.find_one({"file_hash": file_hash})
+    if existing:
+        # optional: delete new file if duplicate
+        try:
+            os.remove(save_path)
+        except:
+            pass
+
+        return {
+            "message": "Duplicate file detected ❌",
+            "file_url": existing["file_url"],
+            "filename": existing["stored_name"],
+            "original_name": existing.get("original_name"),
+            "size_bytes": existing.get("size_bytes"),
+            "duplicate_of": existing["file_url"]
+        }
+
+    # Opaque file identifier (resolved via uploads_collection)
+    file_url = f"/private/{unique_filename}"
 
     # Store upload metadata in MongoDB
     upload_doc = {
@@ -91,6 +121,7 @@ async def upload_file(
         "file_url": file_url,
         "file_ext": ext,
         "size_bytes": size_bytes,
+        "file_hash": file_hash,
         "created_at": int(time.time()),
         "is_linked": False,
         "linked_note_id": None,

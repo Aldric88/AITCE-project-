@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field
-from typing import Literal
+from typing import Literal, Optional
 
 
 RoleType = Literal["student", "moderator", "admin"]
@@ -28,6 +28,9 @@ class UserResponse(BaseModel):
     section: str
     role: RoleType
     verified_seller: bool = False
+    
+    cluster_id: Optional[str] = None
+    verified_by_domain: bool = False
 
 
 class TokenResponse(BaseModel):

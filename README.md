@@ -80,11 +80,34 @@ Notes Market/
 - Node.js 16+
 - MongoDB (local or Atlas)
 
+### One-Command Local Run
+```bash
+npm run dev:up
+```
+
+This starts MongoDB, backend, and frontend together with local-safe defaults:
+- `JWT_SECRET_KEY=dev-local-secret` (if not already set)
+- `MODERATION_AI_MODE=rules` (no paid AI key required)
+- MongoDB data is always stored in one fixed folder:
+  - `/Users/aldricanto/Documents/Notes market/.run/mongodb`
+
+To stop everything:
+```bash
+npm run dev:down
+```
+
 ### Backend Setup
 ```bash
 cd backend
 pip install -r requirements.txt
+python migrations/apply_indexes.py
 uvicorn app.main:app --reload --port 8001
+```
+
+In another terminal for AI job processing:
+```bash
+cd backend
+python run_ai_worker.py
 ```
 
 ### Frontend Setup
@@ -129,9 +152,10 @@ npm run dev -- --host
 ## 🔐 Security Features
 
 - JWT-based authentication
+- HttpOnly auth cookies (frontend does not store JWT in localStorage)
 - Role-based access control
 - Input validation and sanitization
-- Rate limiting on sensitive endpoints
+- Redis-backed rate limiting on sensitive endpoints (with local fallback)
 - Secure file upload with validation
 - Password hashing with bcrypt
 

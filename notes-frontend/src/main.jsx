@@ -5,8 +5,6 @@ import { AuthProvider } from "./auth/AuthContext.jsx";
 import { Toaster } from "react-hot-toast";
 import "./index.css";
 
-console.log("Main.jsx loaded");
-
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <AuthProvider>
@@ -15,3 +13,18 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     </AuthProvider>
   </React.StrictMode>
 );
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", async () => {
+    if (import.meta.env.DEV) {
+      // Avoid stale cache issues during local development.
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((r) => r.unregister()));
+      return;
+    }
+
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      // ignore SW registration failures.
+    });
+  });
+}
