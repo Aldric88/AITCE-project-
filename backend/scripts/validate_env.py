@@ -30,6 +30,8 @@ def main():
         "EMAIL_USER",
         "EMAIL_PASS",
         "EMAIL_FROM",
+        "RAZORPAY_KEY_ID",
+        "RAZORPAY_KEY_SECRET",
         "RAZORPAY_WEBHOOK_SECRET",
         "GEMINI_API_KEY",
         "GEMINI_MODEL",

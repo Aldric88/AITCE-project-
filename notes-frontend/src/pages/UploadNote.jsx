@@ -36,6 +36,7 @@ export default function UploadNote() {
 
   useEffect(() => {
     if (!user) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setForm((prev) => ({
       ...prev,
       dept: prev.dept || user.dept || "",

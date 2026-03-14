@@ -46,6 +46,12 @@ jobs:
       AI_JOB_MAX_ATTEMPTS: "3"
       ENABLE_SECURITY_HEADERS: "true"
       MODERATION_AI_MODE: rules
+      CORS_ORIGINS: "http://localhost:5173"
+      INITIAL_WALLET_POINTS: "200"
+      NOTE_PUBLISH_POINTS: "15"
+      TOP_CONTRIBUTOR_BONUS_POINTS: "100"
+      POINTS_SELLER_REWARD_PERCENT: "80"
+      PAYMENT_PENDING_TTL_SECONDS: "1800"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
