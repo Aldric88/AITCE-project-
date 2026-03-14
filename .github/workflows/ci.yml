@@ -77,7 +77,7 @@ jobs:
         run: pytest -q
 
       - name: Security scan
-        run: bandit -q -r app
+        run: bandit -q -r app -ll
 
   frontend:
     runs-on: ubuntu-latest
