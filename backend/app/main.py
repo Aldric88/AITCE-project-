@@ -66,6 +66,7 @@ allowed_origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhos
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
+    allow_origin_regex=r"https://notes-market.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Accept", "X-Idempotency-Key", "X-Request-ID"],
