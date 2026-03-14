@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { useTheme } from "../context/ThemeContext";
+import { useTheme } from "../context/useTheme";
 import toast from "react-hot-toast";
 import { useEffect, useMemo, useRef, useState } from "react";
 

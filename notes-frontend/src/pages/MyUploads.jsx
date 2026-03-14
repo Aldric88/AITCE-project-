@@ -14,15 +14,6 @@ export default function MyUploads() {
   const [deletingId, setDeletingId] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
 
-  const fetchNotes = async () => {
-    try {
-      const res = await api.get(ENDPOINTS.notes.mine);
-      setNotes(res.data);
-    } catch (err) {
-      toast.error(err.response?.data?.detail || "Failed to load uploads");
-    }
-  };
-
   useEffect(() => {
     let active = true;
     const run = async () => {
