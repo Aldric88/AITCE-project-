@@ -394,12 +394,12 @@ export default function Layout({ title, children }) {
             <p className="text-xs font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300">
               Verify your college email to upload notes and access all features.
             </p>
-            <a
-              href="/verify-email"
+            <Link
+              to="/verify-email"
               className="shrink-0 border border-amber-600 dark:border-amber-500 bg-amber-600 dark:bg-amber-700 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white hover:bg-amber-700 transition-colors"
             >
               Verify Now
-            </a>
+            </Link>
           </div>
         </div>
       )}
