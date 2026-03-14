@@ -24,6 +24,7 @@ const ClassSpaces = lazy(() => import("./pages/ClassSpaces"));
 const Monetization = lazy(() => import("./pages/Monetization"));
 const AdminAnalytics = lazy(() => import("./pages/AdminAnalytics"));
 const AdminDomainCandidates = lazy(() => import("./pages/AdminDomainCandidates"));
+const Wallet = lazy(() => import("./pages/Wallet"));
 const MyUploads = lazy(() => import("./pages/MyUploads"));
 const MyBookmarks = lazy(() => import("./pages/MyBookmarks"));
 const MyPurchases = lazy(() => import("./pages/MyPurchases"));
@@ -31,6 +32,8 @@ const Viewer = lazy(() => import("./pages/Viewer"));
 const NoteDetails = lazy(() => import("./pages/NoteDetails"));
 const Trending = lazy(() => import("./pages/Trending"));
 const SellerDashboard = lazy(() => import("./pages/SellerDashboard"));
+const Passes = lazy(() => import("./pages/Passes"));
+const MyLibrary = lazy(() => import("./pages/MyLibrary"));
 
 function Protected(element) {
   return <ProtectedRoute>{element}</ProtectedRoute>;
@@ -52,8 +55,10 @@ export default function App() {
           <Route path="/moderation-dashboard" element={Protected(<ModerationDashboard />)} />
           <Route path="/rejected-notes" element={Protected(<RejectedNotes />)} />
           <Route path="/my-uploads" element={Protected(<MyUploads />)} />
+          <Route path="/my-library" element={Protected(<MyLibrary />)} />
           <Route path="/my-bookmarks" element={Protected(<MyBookmarks />)} />
           <Route path="/my-purchases" element={Protected(<MyPurchases />)} />
+          <Route path="/wallet" element={Protected(<Wallet />)} />
           <Route path="/notes/:noteId" element={Protected(<NoteDetails />)} />
           <Route path="/trending" element={Protected(<Trending />)} />
           <Route path="/seller-dashboard" element={Protected(<SellerDashboard />)} />
@@ -72,6 +77,7 @@ export default function App() {
           <Route path="/ops-dashboard" element={Protected(<OpsDashboard />)} />
           <Route path="/secure-viewer/:noteId" element={Protected(<SecureViewer />)} />
           <Route path="/viewer" element={Protected(<Viewer />)} />
+          <Route path="/passes" element={Protected(<Passes />)} />
         </Routes>
       </Suspense>
     </BrowserRouter>

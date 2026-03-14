@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Layout from "../components/Layout";
 import api from "../api/axios";
 import toast from "react-hot-toast";
+import { useAuth } from "../auth/AuthContext";
 
 export default function UploadNote() {
+  const { user } = useAuth();
   const [file, setFile] = useState(null);
   const [fileUrl, setFileUrl] = useState("");
 
@@ -14,11 +16,35 @@ export default function UploadNote() {
     unit: "",
     tags: "",
     note_type: "pdf",
+    external_link: "",
     is_paid: false,
     price: 0,
+    dept: user?.dept || "",
+    semester: Number(user?.year) > 0 ? Math.max(1, (Number(user.year) * 2) - 1) : 1,
   });
 
+  const FILE_TYPES = ["pdf", "doc", "ppt", "image"];
+  const NOTE_TYPE_OPTIONS = [
+    { value: "pdf", label: "PDF" },
+    { value: "doc", label: "Word Doc" },
+    { value: "ppt", label: "PowerPoint" },
+    { value: "image", label: "Image" },
+    { value: "link", label: "External Link" },
+    { value: "text", label: "Text Content" },
+  ];
+  const needsFileUpload = FILE_TYPES.includes(form.note_type);
+
+  useEffect(() => {
+    if (!user) return;
+    setForm((prev) => ({
+      ...prev,
+      dept: prev.dept || user.dept || "",
+      semester: prev.semester || (Number(user.year) > 0 ? Math.max(1, (Number(user.year) * 2) - 1) : 1),
+    }));
+  }, [user]);
+
   const uploadFile = async () => {
+    if (!needsFileUpload) return;
     if (!file) return toast.error("Choose a file first ❌");
 
     try {
@@ -38,28 +64,32 @@ export default function UploadNote() {
 
   const createNote = async () => {
     try {
-      if (!fileUrl) return toast.error("Upload file first ❌");
       if (!form.title.trim()) return toast.error("Title required ❌");
       if (!form.subject.trim()) return toast.error("Subject required ❌");
 
+      if (needsFileUpload && !fileUrl) return toast.error("Upload file first ❌");
+      if (form.note_type === "link" && !form.external_link.trim()) return toast.error("External link required ❌");
+      if (form.note_type === "text" && !form.description.trim()) return toast.error("Text content (description) required ❌");
+
       // ✅ paid note rules
       if (form.is_paid) {
-        if (form.price < 50) return toast.error("Paid notes must start from ₹50");
+        if (form.price < 1) return toast.error("Paid notes must start from ₹1");
         if (form.price > 150) return toast.error("Max price is ₹150");
       }
 
       const payload = {
         title: form.title,
         description: form.description,
-        dept: "CSE", // ✅ auto (later take from user)
-        semester: 3, // ✅ auto (later take from user)
+        dept: form.dept || user?.dept || "",
+        semester: Number(form.semester) || 1,
         subject: form.subject,
         unit: String(form.unit || "1"),
         tags: form.tags
           ? form.tags.split(",").map((t) => t.trim()).filter(Boolean)
           : [],
         note_type: form.note_type,
-        file_url: fileUrl,
+        file_url: needsFileUpload ? fileUrl : undefined,
+        external_link: form.note_type === "link" ? form.external_link.trim() : undefined,
         is_paid: form.is_paid,
         price: form.is_paid ? Number(form.price) : 0,
       };
@@ -77,8 +107,11 @@ export default function UploadNote() {
         unit: "",
         tags: "",
         note_type: "pdf",
+        external_link: "",
         is_paid: false,
         price: 0,
+        dept: user?.dept || "",
+        semester: Number(user?.year) > 0 ? Math.max(1, (Number(user.year) * 2) - 1) : 1,
       });
     } catch (err) {
       toast.error(err.response?.data?.detail || "Create note failed");
@@ -93,32 +126,80 @@ export default function UploadNote() {
             📤 Upload Notes
           </h2>
 
-          {/* FILE UPLOAD */}
-          <div className="border-2 border-dashed border-gray-300 bg-gray-50 p-6 mb-8 hover:border-black transition-colors">
-            <p className="font-bold uppercase tracking-wide text-sm mb-4">Upload File</p>
-
-            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-              <input
-                type="file"
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
-                className="w-full text-sm font-medium file:mr-4 file:py-2 file:px-4 file:border-0 file:text-sm file:font-bold file:bg-black file:text-white hover:file:bg-gray-800 file:uppercase file:tracking-wide file:cursor-pointer"
-              />
-
-              <button
-                onClick={uploadFile}
-                className="px-6 py-2 bg-black text-white hover:bg-neutral-800 transition font-bold uppercase tracking-wide text-sm whitespace-nowrap"
-              >
-                Upload File
-              </button>
+          {/* NOTE TYPE SELECTOR */}
+          <div className="mb-6">
+            <p className="font-bold uppercase tracking-wide text-sm mb-3">Note Type</p>
+            <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+              {NOTE_TYPE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setForm({ ...form, note_type: opt.value, external_link: "" })}
+                  className={`px-3 py-2 text-xs font-black uppercase tracking-wide border transition-all ${
+                    form.note_type === opt.value
+                      ? "bg-black text-white border-black"
+                      : "bg-white text-gray-500 border-gray-300 hover:border-black"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
-
-            <p className="text-xs font-bold uppercase tracking-wide text-gray-400 mt-4">
-              Uploaded file_url:{" "}
-              <span className="text-black bg-gray-200 px-1">
-                {fileUrl ? "✅ FILE READY" : "PENDING..."}
-              </span>
-            </p>
           </div>
+
+          {/* FILE UPLOAD — only for file-based types */}
+          {needsFileUpload && (
+            <div className="border-2 border-dashed border-gray-300 bg-gray-50 p-6 mb-8 hover:border-black transition-colors">
+              <p className="font-bold uppercase tracking-wide text-sm mb-4">Upload File</p>
+
+              <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+                <input
+                  type="file"
+                  onChange={(e) => setFile(e.target.files?.[0] || null)}
+                  className="w-full text-sm font-medium file:mr-4 file:py-2 file:px-4 file:border-0 file:text-sm file:font-bold file:bg-black file:text-white hover:file:bg-gray-800 file:uppercase file:tracking-wide file:cursor-pointer"
+                />
+
+                <button
+                  onClick={uploadFile}
+                  className="px-6 py-2 bg-black text-white hover:bg-neutral-800 transition font-bold uppercase tracking-wide text-sm whitespace-nowrap"
+                >
+                  Upload File
+                </button>
+              </div>
+
+              <p className="text-xs font-bold uppercase tracking-wide text-gray-400 mt-4">
+                Uploaded file_url:{" "}
+                <span className="text-black bg-gray-200 px-1">
+                  {fileUrl ? "✅ FILE READY" : "PENDING..."}
+                </span>
+              </p>
+            </div>
+          )}
+
+          {/* EXTERNAL LINK — for link type */}
+          {form.note_type === "link" && (
+            <div className="border-2 border-dashed border-blue-200 bg-blue-50 p-6 mb-8">
+              <p className="font-bold uppercase tracking-wide text-sm mb-3">External Link</p>
+              <input
+                className="w-full px-4 py-3 bg-white border border-black text-black focus:outline-none font-medium rounded-none"
+                placeholder="https://drive.google.com/... or any URL"
+                value={form.external_link}
+                onChange={(e) => setForm({ ...form, external_link: e.target.value })}
+              />
+              <p className="text-xs text-blue-600 font-bold uppercase tracking-wide mt-2">
+                Paste a Google Drive, OneDrive, or any public link to your notes
+              </p>
+            </div>
+          )}
+
+          {/* TEXT TYPE hint */}
+          {form.note_type === "text" && (
+            <div className="border-2 border-dashed border-emerald-200 bg-emerald-50 p-4 mb-6">
+              <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">
+                Text Note — use the Description field below to write your content
+              </p>
+            </div>
+          )}
 
           {/* NOTE FORM */}
           <div className="space-y-4">
@@ -144,6 +225,28 @@ export default function UploadNote() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1">Department</label>
+                <input
+                  className="w-full px-4 py-3 bg-white border border-gray-300 focus:border-black focus:outline-none transition-all font-bold rounded-none text-black"
+                  placeholder="Department (ex: CSE)"
+                  value={form.dept}
+                  onChange={(e) => setForm({ ...form, dept: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1">Semester</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  className="w-full px-4 py-3 bg-white border border-gray-300 focus:border-black focus:outline-none transition-all font-bold rounded-none text-black"
+                  value={form.semester}
+                  onChange={(e) => setForm({ ...form, semester: Number(e.target.value) || 1 })}
+                />
+              </div>
+
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1">Subject</label>
                 <input
@@ -193,7 +296,7 @@ export default function UploadNote() {
 
                 <button
                   type="button"
-                  onClick={() => setForm({ ...form, is_paid: true, price: 50 })}
+                  onClick={() => setForm({ ...form, is_paid: true, price: 1 })}
                   className={`flex-1 px-4 py-3 font-black uppercase tracking-wide text-sm border transition-all ${form.is_paid
                       ? "bg-black text-white border-black"
                       : "bg-white text-gray-400 border-gray-300 hover:border-gray-400"
@@ -206,17 +309,17 @@ export default function UploadNote() {
               {form.is_paid && (
                 <div className="mt-3">
                   <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1">
-                    Set Price (₹50 - ₹150)
+                    Set Price (₹1 - ₹150)
                   </label>
                   <input
                     type="number"
-                    min={50}
+                    min={1}
                     max={150}
                     value={form.price}
                     onChange={(e) => {
                       let val = Number(e.target.value);
                       if (val > 150) val = 150;
-                      if (val < 50) val = 50;
+                      if (val < 1) val = 1;
                       setForm({ ...form, price: val });
                     }}
                     className="w-full px-4 py-3 bg-white border border-black text-black font-bold text-lg"

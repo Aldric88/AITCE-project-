@@ -28,4 +28,5 @@ def note_helper(note) -> dict:
         "seller_trust_level": note.get("seller_trust_level", "new"),
         "seller_total_sales": note.get("seller_total_sales", 0),
         "has_access": note.get("has_access", False),
+        "collaborator_count": len(note.get("collaborator_ids", [])),
     }

@@ -85,7 +85,7 @@ export default function Dashboard() {
     apiCachedFetcher(firstPageUrl),
     {
       staleTimeMs: semanticEnabled ? 10000 : 15000,
-      onError: () => toast.error("Failed to fetch notes"),
+      onError: () => toast.error("Failed to fetch notes", { id: "notes-fetch-error" }),
     },
   );
 
@@ -118,7 +118,7 @@ export default function Dashboard() {
         setHasMore(false);
       }
     } catch {
-      toast.error("Failed to load more notes");
+      toast.error("Failed to load more notes", { id: "load-more-error" });
     } finally {
       setLoadingMore(false);
     }
@@ -194,7 +194,6 @@ export default function Dashboard() {
             ...prev,
             [noteId]: Math.max(0, (prev[noteId] || 0) - 1),
           }));
-          toast.success("Like removed");
         } else {
           await api.post(ENDPOINTS.likes.byNote(noteId));
           setLikedSet((prev) => new Set([...prev, noteId]));
@@ -202,7 +201,6 @@ export default function Dashboard() {
             ...prev,
             [noteId]: (prev[noteId] || 0) + 1,
           }));
-          toast.success("Liked");
         }
         invalidatePrefix(ENDPOINTS.likes.mine);
         await likesQuery.refetch();
@@ -227,11 +225,9 @@ export default function Dashboard() {
             next.delete(noteId);
             return next;
           });
-          toast.success("Bookmark removed");
         } else {
           await api.post(ENDPOINTS.bookmarks.byNote(noteId));
           setBookmarkedSet((prev) => new Set([...prev, noteId]));
-          toast.success("Bookmarked");
         }
         invalidatePrefix(ENDPOINTS.bookmarks.mine);
         await bookmarksQuery.refetch();
@@ -287,98 +283,146 @@ export default function Dashboard() {
     <Layout title="Dashboard">
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3 page-enter">
         <div className="lg:col-span-2">
-          <div className="panel-depth relative mb-8 overflow-hidden border border-black bg-white p-8 scale-in">
-            <div className="pointer-events-none absolute -right-20 -top-24 h-56 w-56 rounded-full border border-neutral-200" />
-            <h2 className="mb-6 flex items-center gap-3 text-4xl font-black uppercase tracking-tighter text-black">
-              Find Notes <span className="border border-black bg-black px-2 text-white">Fast</span>
-            </h2>
+          {/* ── Find Notes Fast panel ── */}
+          <div className="relative mb-8 overflow-hidden scale-in border border-black dark:border-zinc-700 bg-white dark:bg-zinc-900">
+            {/* Accent top bar */}
+            <div className="h-1 w-full bg-black dark:bg-white" />
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <select
-                className="input-surface"
-                value={filters.semester}
-                onChange={(e) => setFilters((prev) => ({ ...prev, semester: e.target.value }))}
-              >
-                <option value="">Select Semester</option>
-                {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
-                  <option key={s} value={s}>
-                    {s}th Semester
-                  </option>
-                ))}
-              </select>
+            {/* Grid pattern decoration */}
+            <div
+              className="pointer-events-none absolute inset-0 opacity-[0.03] dark:opacity-[0.06]"
+              style={{
+                backgroundImage:
+                  "repeating-linear-gradient(0deg,#000 0,#000 1px,transparent 1px,transparent 32px),repeating-linear-gradient(90deg,#000 0,#000 1px,transparent 1px,transparent 32px)",
+              }}
+            />
 
-              <select
-                className="input-surface"
-                value={filters.subject}
-                onChange={(e) => setFilters((prev) => ({ ...prev, subject: e.target.value }))}
-              >
-                <option value="">Select Subject</option>
-                <option value="Mathematics">Mathematics</option>
-                <option value="Physics">Physics</option>
-                <option value="Chemistry">Chemistry</option>
-                <option value="Programming">Programming</option>
-                <option value="Data Structures">Data Structures</option>
-                <option value="Algorithms">Algorithms</option>
-                <option value="Database">Database</option>
-                <option value="Networking">Networking</option>
-              </select>
-
-              <select
-                className="input-surface"
-                value={filters.exam_tag}
-                onChange={(e) => setFilters((prev) => ({ ...prev, exam_tag: e.target.value }))}
-              >
-                <option value="">Select Exam Type</option>
-                <option value="Mid-Sem">Mid-Sem</option>
-                <option value="End-Sem">End-Sem</option>
-                <option value="Quick Revision">Quick Revision</option>
-                <option value="One-Night Prep">One-Night Prep</option>
-              </select>
-
-              <select
-                className="input-surface"
-                value={filters.sort}
-                onChange={(e) => setFilters((prev) => ({ ...prev, sort: e.target.value }))}
-              >
-                <option value="newest">Sort: Newest</option>
-                <option value="downloads">Sort: Most Downloaded</option>
-                <option value="rating">Sort: Highest Rated</option>
-                <option value="free_first">Sort: Free First</option>
-              </select>
-
-              <div className="mt-2 flex gap-4 md:col-span-2">
-                <input
-                  className="input-surface w-full text-base uppercase md:text-lg"
-                  placeholder="Search keywords"
-                  value={filters.search}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
-                  onKeyDown={(e) => e.key === "Enter" && notesQuery.refetch()}
-                />
-                <button onClick={() => notesQuery.refetch()} className="btn-primary whitespace-nowrap">
-                  Search
-                </button>
+            <div className="relative p-8">
+              <div className="mb-6 flex items-center justify-between">
+                <h2 className="flex items-center gap-3 text-4xl font-black uppercase tracking-tighter text-black dark:text-white">
+                  Find Notes{" "}
+                  <span className="relative inline-block bg-black dark:bg-white px-3 py-0.5 text-white dark:text-black">
+                    Fast
+                    <span className="absolute -right-1 -top-1 h-2 w-2 bg-black dark:bg-white opacity-30" />
+                  </span>
+                </h2>
+                <span className="hidden sm:flex items-center gap-1.5 border border-zinc-200 dark:border-zinc-700 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Live
+                </span>
               </div>
 
-              <label className="mt-2 flex items-center gap-2 md:col-span-2 text-xs font-bold uppercase tracking-wider text-zinc-600">
-                <input
-                  type="checkbox"
-                  checked={!!filters.semantic}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, semantic: e.target.checked }))}
-                />
-                Semantic Search (local/free)
-              </label>
-            </div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="group relative">
+                  <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Semester</label>
+                  <select
+                    className="w-full border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2.5 text-xs font-bold uppercase tracking-wide text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white transition-colors appearance-none cursor-pointer"
+                    value={filters.semester}
+                    onChange={(e) => setFilters((prev) => ({ ...prev, semester: e.target.value }))}
+                  >
+                    <option value="">All Semesters</option>
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
+                      <option key={s} value={s}>{s}th Semester</option>
+                    ))}
+                  </select>
+                </div>
 
-            <div className="mt-6 border-t border-gray-100 pt-4">
-              <button
-                onClick={() => {
-                  setFilters(INITIAL_FILTERS);
-                  toast.success("Filters cleared");
-                }}
-                className="btn-secondary px-4 py-2 text-xs"
-              >
-                Clear All
-              </button>
+                <div className="group relative">
+                  <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Subject</label>
+                  <select
+                    className="w-full border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2.5 text-xs font-bold uppercase tracking-wide text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white transition-colors appearance-none cursor-pointer"
+                    value={filters.subject}
+                    onChange={(e) => setFilters((prev) => ({ ...prev, subject: e.target.value }))}
+                  >
+                    <option value="">All Subjects</option>
+                    <option value="Mathematics">Mathematics</option>
+                    <option value="Physics">Physics</option>
+                    <option value="Chemistry">Chemistry</option>
+                    <option value="Programming">Programming</option>
+                    <option value="Data Structures">Data Structures</option>
+                    <option value="Algorithms">Algorithms</option>
+                    <option value="Database">Database</option>
+                    <option value="Networking">Networking</option>
+                  </select>
+                </div>
+
+                <div className="group relative">
+                  <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Exam Type</label>
+                  <select
+                    className="w-full border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2.5 text-xs font-bold uppercase tracking-wide text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white transition-colors appearance-none cursor-pointer"
+                    value={filters.exam_tag}
+                    onChange={(e) => setFilters((prev) => ({ ...prev, exam_tag: e.target.value }))}
+                  >
+                    <option value="">All Types</option>
+                    <option value="Mid-Sem">Mid-Sem</option>
+                    <option value="End-Sem">End-Sem</option>
+                    <option value="Quick Revision">Quick Revision</option>
+                    <option value="One-Night Prep">One-Night Prep</option>
+                  </select>
+                </div>
+
+                <div className="group relative">
+                  <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Sort By</label>
+                  <select
+                    className="w-full border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-2.5 text-xs font-bold uppercase tracking-wide text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white transition-colors appearance-none cursor-pointer"
+                    value={filters.sort}
+                    onChange={(e) => setFilters((prev) => ({ ...prev, sort: e.target.value }))}
+                  >
+                    <option value="newest">Newest First</option>
+                    <option value="downloads">Most Downloaded</option>
+                    <option value="rating">Highest Rated</option>
+                    <option value="free_first">Free First</option>
+                  </select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Search</label>
+                  <div className="flex gap-2">
+                    <input
+                      className="flex-1 border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-4 py-2.5 text-sm font-bold uppercase tracking-wide text-black dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 focus:outline-none focus:border-black dark:focus:border-white transition-colors"
+                      placeholder="Keywords..."
+                      value={filters.search}
+                      onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
+                      onKeyDown={(e) => e.key === "Enter" && notesQuery.refetch()}
+                    />
+                    <button
+                      onClick={() => notesQuery.refetch()}
+                      className="border border-black dark:border-white bg-black dark:bg-white text-white dark:text-black px-5 py-2.5 text-xs font-black uppercase tracking-widest hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors whitespace-nowrap"
+                    >
+                      Search
+                    </button>
+                  </div>
+                </div>
+
+                <label className="md:col-span-2 flex items-center gap-3 cursor-pointer group">
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      className="sr-only peer"
+                      checked={!!filters.semantic}
+                      onChange={(e) => setFilters((prev) => ({ ...prev, semantic: e.target.checked }))}
+                    />
+                    <div className="h-4 w-8 border border-zinc-300 dark:border-zinc-600 bg-zinc-100 dark:bg-zinc-800 peer-checked:bg-black dark:peer-checked:bg-white peer-checked:border-black dark:peer-checked:border-white transition-colors" />
+                    <div className="absolute top-0.5 left-0.5 h-3 w-3 bg-zinc-400 dark:bg-zinc-600 peer-checked:bg-white dark:peer-checked:bg-black peer-checked:translate-x-4 transition-all" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 group-hover:text-black dark:group-hover:text-white transition-colors">
+                    Semantic Search
+                    <span className="ml-2 border border-zinc-300 dark:border-zinc-600 px-1.5 py-0.5 text-[9px]">FREE</span>
+                  </span>
+                </label>
+              </div>
+
+              <div className="mt-5 flex items-center justify-between border-t border-zinc-100 dark:border-zinc-800 pt-4">
+                <button
+                  onClick={() => setFilters(INITIAL_FILTERS)}
+                  className="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500 hover:text-black dark:hover:text-white transition-colors border border-transparent hover:border-zinc-300 dark:hover:border-zinc-600 px-3 py-1.5"
+                >
+                  ✕ Clear All
+                </button>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-300 dark:text-zinc-700">
+                  Notes Market Search Engine
+                </span>
+              </div>
             </div>
           </div>
 

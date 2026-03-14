@@ -98,6 +98,9 @@ def _build_limiter(requests_limit: int, time_window: int, key_prefix: str):
 # Login: 5 attempts per minute
 login_limiter = _build_limiter(requests_limit=5, time_window=60, key_prefix="rl:login")
 
+# Signup: 5 signups per 5 minutes per IP
+signup_limiter = _build_limiter(requests_limit=5, time_window=300, key_prefix="rl:signup")
+
 # Search: 20 requests per minute
 search_limiter = _build_limiter(requests_limit=20, time_window=60, key_prefix="rl:search")
 

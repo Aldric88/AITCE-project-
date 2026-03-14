@@ -143,6 +143,50 @@ Text:
     return llm_json
 
 
+def _gemini_analysis(text: str, meta: dict) -> dict:
+    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    if not api_key:
+        raise ValueError("GEMINI_API_KEY missing")
+
+    model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    timeout_seconds = float(os.getenv("GEMINI_TIMEOUT_SECONDS", "25"))
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    prompt = f"""
+You are a strict academic notes moderator.
+Return ONLY valid JSON with keys:
+content_valid,title_match,description_match,subject_match,tags_relevance,spam_score,is_spam,is_relevant,summary,topics,warnings,validation_details,critical_issues
+Metadata:
+title={meta.get("title","")}
+description={meta.get("description","")}
+subject={meta.get("subject","")}
+dept={meta.get("dept","")}
+unit={meta.get("unit","")}
+tags={meta.get("tags",[])}
+Text:
+{text[:4500]}
+"""
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.2, "responseMimeType": "application/json"},
+    }
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=timeout_seconds) as resp:
+        raw = resp.read().decode("utf-8")
+    data = json.loads(raw)
+    text_out = (
+        data.get("candidates", [{}])[0]
+        .get("content", {})
+        .get("parts", [{}])[0]
+        .get("text", "")
+    )
+    return _safe_json_loads(text_out)
+
+
 def _moderation_bucket(report: dict) -> Tuple[str, int]:
     spam_score = int(report.get("spam_score", 0))
     critical = report.get("critical_issues", []) or []
@@ -168,6 +212,16 @@ def _moderation_bucket(report: dict) -> Tuple[str, int]:
 def analyze_with_hybrid_fallback(text: str, meta: dict) -> Tuple[dict, dict]:
     mode = os.getenv("MODERATION_AI_MODE", "rules").lower()
     errors = []
+
+    if mode in {"auto", "gemini"}:
+        try:
+            result = _gemini_analysis(text, meta)
+            bucket, risk_score = _moderation_bucket(result)
+            return result, {"provider": "gemini", "fallback_used": False, "moderation_bucket": bucket, "risk_score": risk_score}
+        except (ValueError, KeyError, urllib.error.URLError, TimeoutError, json.JSONDecodeError, IndexError) as exc:
+            errors.append(f"gemini_failed:{exc}")
+            if mode == "gemini":
+                raise
 
     if mode in {"auto", "ollama"}:
         try:

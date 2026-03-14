@@ -12,6 +12,15 @@
   --tone-700: #4a4a47;
   --tone-900: #181817;
 
+  /* Semantic color tokens — light mode */
+  --color-background: #ffffff;
+  --color-foreground: #0a0a0a;
+  --color-surface: #ffffff;
+  --color-surface-raised: #f8f8f7;
+  --color-muted: #f3f4f6;
+  --color-muted-foreground: #6b7280;
+  --color-border: #e5e7eb;
+
   /* Animation timings */
   --duration-fast: 150ms;
   --duration-normal: 250ms;
@@ -22,6 +31,17 @@
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out-circ: cubic-bezier(0.85, 0, 0.15, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ========== DARK MODE TOKENS ========== */
+.dark {
+  --color-background: #0f0f0f;
+  --color-foreground: #f1f1ef;
+  --color-surface: #1a1a1a;
+  --color-surface-raised: #242424;
+  --color-muted: #2a2a2a;
+  --color-muted-foreground: #9ca3af;
+  --color-border: #333333;
 }
 
 @layer base {
@@ -37,6 +57,14 @@
       radial-gradient(circle at 20% -10%, #f4f4f3 0%, transparent 40%),
       radial-gradient(circle at 80% 0%, #f1f1ef 0%, transparent 35%),
       linear-gradient(#ffffff, #fdfdfc);
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  .dark body {
+    background-image:
+      radial-gradient(circle at 20% -10%, #1a1a2e 0%, transparent 40%),
+      radial-gradient(circle at 80% 0%, #16161a 0%, transparent 35%),
+      linear-gradient(#0f0f0f, #111111);
   }
 
   code,
@@ -566,4 +594,179 @@
     opacity: 1;
     transform: translateY(0);
   }
+
+  /* ========== DARK MODE COMPONENT OVERRIDES ========== */
+
+  /* Buttons */
+  .dark .btn-secondary {
+    @apply border-zinc-600 bg-zinc-800 text-zinc-100;
+  }
+  .dark .btn-secondary:hover {
+    @apply bg-zinc-700;
+  }
+  .dark .btn-ghost {
+    @apply text-zinc-200;
+  }
+  .dark .btn-ghost:hover {
+    @apply bg-zinc-800;
+  }
+
+  /* Inputs */
+  .dark .input-field {
+    @apply border-zinc-600 bg-zinc-800 text-zinc-100 placeholder-zinc-400;
+  }
+  .dark .input-surface {
+    @apply border-zinc-600 bg-zinc-800 text-zinc-100;
+  }
+  .dark .input-surface:hover,
+  .dark .input-surface:focus {
+    @apply bg-zinc-700;
+  }
+
+  /* Cards */
+  .dark .minimal-card {
+    @apply border-zinc-700 bg-zinc-800;
+  }
+  .dark .minimal-card:hover {
+    border-color: #9ca3af;
+    box-shadow: 10px 10px 0 0 rgba(255, 255, 255, 0.06);
+  }
+
+  /* Shimmer skeleton */
+  .dark .shimmer-skeleton {
+    @apply bg-zinc-700;
+    background-image: linear-gradient(90deg,
+      rgba(255,255,255,0) 0%,
+      rgba(255,255,255,0.08) 50%,
+      rgba(255,255,255,0) 100%);
+  }
+
+  /* Glass panel */
+  .dark .glass-panel {
+    background: rgba(30, 30, 30, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+}
+
+/* ==========================================================================
+   GLOBAL DARK MODE OVERRIDES
+   These cover every page/component that uses hardcoded Tailwind color classes
+   without explicit dark: variants. Applied when .dark is on <html>.
+   ========================================================================== */
+
+/* ── Backgrounds ── */
+.dark .bg-white    { background-color: #1a1a1a; }
+.dark .bg-gray-50  { background-color: #1a1a1a; }
+.dark .bg-gray-100 { background-color: #242424; }
+.dark .bg-gray-200 { background-color: #2e2e2e; }
+.dark .bg-zinc-50  { background-color: #1a1a1a; }
+.dark .bg-zinc-100 { background-color: #242424; }
+.dark .bg-zinc-200 { background-color: #2e2e2e; }
+
+/* ── Text ── */
+.dark .text-black  { color: #f1f1ef; }
+
+.dark .text-gray-300 { color: #6b7280; }
+.dark .text-gray-400 { color: #9ca3af; }
+.dark .text-gray-500 { color: #d1d5db; }
+.dark .text-gray-600 { color: #e5e7eb; }
+.dark .text-gray-700 { color: #f3f4f6; }
+.dark .text-gray-800 { color: #f9fafb; }
+.dark .text-gray-900 { color: #ffffff;  }
+
+.dark .text-zinc-900 { color: #f4f4f5; }
+.dark .text-zinc-800 { color: #e4e4e7; }
+.dark .text-zinc-700 { color: #d4d4d8; }
+.dark .text-zinc-600 { color: #a1a1aa; }
+.dark .text-zinc-500 { color: #9ca3af; }
+
+.dark .text-neutral-800 { color: #e4e4e7; }
+.dark .text-neutral-700 { color: #d4d4d8; }
+.dark .text-neutral-600 { color: #a1a1aa; }
+
+/* ── Borders ── */
+.dark .border-black    { border-color: #52525b; }
+.dark .border-gray-100 { border-color: #27272a; }
+.dark .border-gray-200 { border-color: #3f3f46; }
+.dark .border-gray-300 { border-color: #52525b; }
+.dark .border-zinc-100 { border-color: #27272a; }
+.dark .border-zinc-200 { border-color: #3f3f46; }
+.dark .border-zinc-300 { border-color: #52525b; }
+
+/* ── Hover states ── */
+.dark .hover\:bg-gray-50:hover  { background-color: #242424; }
+.dark .hover\:bg-gray-100:hover { background-color: #2e2e2e; }
+.dark .hover\:bg-gray-800:hover { background-color: #374151; }
+.dark .hover\:bg-zinc-50:hover  { background-color: #242424; }
+.dark .hover\:bg-zinc-100:hover { background-color: #2e2e2e; }
+.dark .hover\:text-black:hover  { color: #ffffff; }
+.dark .hover\:border-black:hover { border-color: #71717a; }
+
+/* ── Status: Red / Error ── */
+.dark .bg-red-50    { background-color: rgba(239, 68, 68, 0.10); }
+.dark .bg-red-100   { background-color: rgba(239, 68, 68, 0.15); }
+.dark .text-red-700 { color: #fca5a5; }
+.dark .text-red-600 { color: #f87171; }
+.dark .text-red-500 { color: #f87171; }
+.dark .border-red-200 { border-color: rgba(239, 68, 68, 0.30); }
+.dark .border-red-300 { border-color: rgba(239, 68, 68, 0.40); }
+.dark .border-red-400 { border-color: rgba(239, 68, 68, 0.50); }
+
+/* ── Status: Blue / Info ── */
+.dark .bg-blue-50    { background-color: rgba(59, 130, 246, 0.10); }
+.dark .text-blue-700 { color: #93c5fd; }
+.dark .text-blue-600 { color: #60a5fa; }
+.dark .border-blue-200 { border-color: rgba(59, 130, 246, 0.30); }
+
+/* ── Status: Emerald / Green / Success ── */
+.dark .bg-emerald-50    { background-color: rgba(16, 185, 129, 0.10); }
+.dark .text-emerald-700 { color: #6ee7b7; }
+.dark .text-emerald-600 { color: #34d399; }
+.dark .border-emerald-200 { border-color: rgba(16, 185, 129, 0.30); }
+.dark .bg-green-50    { background-color: rgba(34, 197, 94, 0.10); }
+.dark .text-green-700 { color: #86efac; }
+.dark .text-green-600 { color: #4ade80; }
+
+/* ── Status: Amber / Warning ── */
+.dark .bg-amber-50    { background-color: rgba(245, 158, 11, 0.10); }
+.dark .text-amber-700 { color: #fcd34d; }
+.dark .text-amber-800 { color: #fbbf24; }
+.dark .border-amber-200 { border-color: rgba(245, 158, 11, 0.30); }
+.dark .bg-yellow-50    { background-color: rgba(234, 179, 8, 0.10); }
+.dark .text-yellow-700 { color: #fde047; }
+
+/* ── Status: Purple / Accent ── */
+.dark .bg-purple-50    { background-color: rgba(168, 85, 247, 0.10); }
+.dark .text-purple-700 { color: #d8b4fe; }
+.dark .text-purple-600 { color: #c084fc; }
+.dark .border-purple-200 { border-color: rgba(168, 85, 247, 0.30); }
+
+/* ── Minimal card (component class) ── */
+.dark .minimal-card {
+  background-color: #1a1a1a;
+  border-color: #3f3f46;
+}
+
+/* ── Box shadows — invert for dark ── */
+.dark .shadow-\[8px_8px_0px_0px_rgba\(0\2c 0\2c 0\2c 1\)\] {
+  box-shadow: 8px 8px 0px 0px rgba(255, 255, 255, 0.07);
+}
+.dark .shadow-\[4px_4px_0px_0px_rgba\(0\2c 0\2c 0\2c 0\.2\)\] {
+  box-shadow: 4px 4px 0px 0px rgba(255, 255, 255, 0.05);
+}
+.dark .shadow-\[10px_10px_0_0_rgba\(17\2c 17\2c 17\2c 0\.12\)\] {
+  box-shadow: 10px 10px 0px 0px rgba(255, 255, 255, 0.06);
+}
+
+/* ── Input / textarea / select fallback ── */
+.dark input:not([class*="dark:"]),
+.dark textarea:not([class*="dark:"]),
+.dark select:not([class*="dark:"]) {
+  background-color: #1a1a1a;
+  color: #f1f1ef;
+  border-color: #52525b;
+}
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #71717a;
 }

@@ -1,6 +1,6 @@
 import asyncio
 import json
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from bson import ObjectId
@@ -8,6 +8,7 @@ import time
 
 from app.database import notifications_collection, users_collection
 from app.utils.dependencies import get_current_user
+from app.utils.notification_bus import wait_for_notification, publish_notification
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 _STREAM_SNAPSHOT_CACHE: dict[str, dict] = {}
@@ -41,13 +42,17 @@ def my_notifications(current_user=Depends(get_current_user)):
 
 @router.post("/{notification_id}/read")
 def mark_as_read(notification_id: str, current_user=Depends(get_current_user)):
-    notifications_collection.update_one(
+    if not ObjectId.is_valid(notification_id):
+        raise HTTPException(status_code=400, detail="Invalid notification id")
+    res = notifications_collection.update_one(
         {
             "_id": ObjectId(notification_id),
             "user_id": ObjectId(current_user["id"])
         },
         {"$set": {"is_read": True}}
     )
+    if res.modified_count:
+        publish_notification(current_user["id"])
     return {"message": "Marked as read"}
 
 
@@ -57,6 +62,8 @@ def mark_all_as_read(current_user=Depends(get_current_user)):
         {"user_id": ObjectId(current_user["id"]), "is_read": False},
         {"$set": {"is_read": True}},
     )
+    if res.modified_count:
+        publish_notification(current_user["id"])
     return {"message": "All notifications marked as read", "updated": res.modified_count}
 
 
@@ -116,10 +123,11 @@ async def notification_stream(current_user=Depends(get_current_user)):
     user_oid = ObjectId(current_user["id"])
     user_key = str(user_oid)
 
-    def get_snapshot(now_ts: int):
+    def get_snapshot(now_ts: int, force_refresh: bool = False):
         cached = _STREAM_SNAPSHOT_CACHE.get(user_key)
         if cached and int(cached.get("expires_at", 0)) > now_ts:
-            return cached["payload"]
+            if not force_refresh:
+                return cached["payload"]
 
         latest = notifications_collection.find_one(
             {"user_id": user_oid},
@@ -144,12 +152,19 @@ async def notification_stream(current_user=Depends(get_current_user)):
 
     async def event_generator():
         last_payload = None
+        last_forced_sync = 0
         while True:
             now_ts = int(time.time())
-            payload = get_snapshot(now_ts)
+            changed = await asyncio.to_thread(wait_for_notification, user_key, 20)
+            force_refresh = changed or (now_ts - last_forced_sync >= 60)
+            if force_refresh:
+                last_forced_sync = now_ts
+            payload = get_snapshot(now_ts, force_refresh=force_refresh)
             if payload != last_payload:
                 last_payload = payload
                 yield f"data: {json.dumps(payload, ensure_ascii=True)}\n\n"
-            await asyncio.sleep(5)
+            else:
+                # Keep-alive comment event for long-lived SSE connections.
+                yield ":\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")

@@ -76,7 +76,7 @@ export default function Viewer() {
                   className="rotate-[-25deg] select-none text-6xl font-bold text-white"
                   style={{ whiteSpace: "pre-line", textAlign: "center" }}
                 >
-                  {user?.name}\n{user?.email}
+                  {user?.name}{"\n"}{user?.email}
                 </p>
               </div>
             </div>

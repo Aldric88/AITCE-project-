@@ -39,25 +39,25 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center px-4 font-sans text-black page-enter">
+    <div className="min-h-screen bg-white dark:bg-zinc-950 flex items-center justify-center px-4 font-sans text-black dark:text-white page-enter">
       <div className="w-full max-w-md fade-in-up">
         {/* Logo/Brand */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-black mb-6 scale-in">
-            <span className="text-white font-bold text-3xl">N</span>
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-black dark:bg-white mb-6 scale-in">
+            <span className="text-white dark:text-black font-bold text-3xl">N</span>
           </div>
           <h1 className="text-4xl font-black uppercase tracking-tighter mb-2">
             Notes Market
           </h1>
-          <p className="text-gray-500 uppercase tracking-wide text-sm font-bold">Welcome back</p>
+          <p className="text-gray-500 dark:text-zinc-400 uppercase tracking-wide text-sm font-bold">Welcome back</p>
         </div>
 
         {/* Login Form */}
-        <div className="bg-white p-0">
+        <div className="p-0">
           <form onSubmit={login} className="space-y-6">
             {/* Email */}
             <div className="fade-in stagger-1">
-              <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">
+              <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-zinc-400 mb-2">
                 Email Address
               </label>
               <input
@@ -65,14 +65,14 @@ export default function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="input-field rounded-none border-black focus:ring-black"
-                placeholder="you@example.com"
+                className="input-field rounded-none border-black dark:border-zinc-500 dark:bg-zinc-800 dark:text-white dark:placeholder-zinc-500 focus:ring-black dark:focus:ring-white"
+                placeholder="you@college.ac.in"
               />
             </div>
 
             {/* Password */}
             <div className="fade-in stagger-2">
-              <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">
+              <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-zinc-400 mb-2">
                 Password
               </label>
               <input
@@ -80,7 +80,7 @@ export default function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="input-field rounded-none border-black focus:ring-black"
+                className="input-field rounded-none border-black dark:border-zinc-500 dark:bg-zinc-800 dark:text-white focus:ring-black dark:focus:ring-white"
                 placeholder="••••••••"
               />
             </div>
@@ -96,12 +96,12 @@ export default function Login() {
           </form>
 
           {/* Signup Link */}
-          <div className="mt-8 text-center border-t border-gray-100 pt-8">
-            <p className="text-gray-500 text-sm">
+          <div className="mt-8 text-center border-t border-gray-100 dark:border-zinc-800 pt-8">
+            <p className="text-gray-500 dark:text-zinc-400 text-sm">
               Don't have an account?{" "}
               <Link
                 to="/signup"
-                className="font-bold text-black border-b-2 border-black hover:bg-black hover:text-white transition-all pb-0.5"
+                className="font-bold text-black dark:text-white border-b-2 border-black dark:border-white hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all pb-0.5"
               >
                 Create one here
               </Link>
@@ -111,7 +111,7 @@ export default function Login() {
 
         {/* Footer */}
         <div className="mt-12 text-center">
-          <p className="text-gray-400 text-xs uppercase tracking-widest">
+          <p className="text-gray-400 dark:text-zinc-600 text-xs uppercase tracking-widest">
             Secure • Fast • Reliable
           </p>
         </div>

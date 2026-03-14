@@ -1,0 +1,72 @@
+services:
+  - type: web
+    name: notes-market-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: MONGO_URI
+        sync: false
+      - key: DB_NAME
+        value: notes_platform
+      - key: MONGO_SERVER_SELECTION_TIMEOUT_MS
+        value: "3000"
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "60"
+      - key: REFRESH_TOKEN_EXPIRE_DAYS
+        value: "7"
+      - key: JWT_COOKIE_NAME
+        value: access_token
+      - key: REFRESH_COOKIE_NAME
+        value: refresh_token
+      - key: JWT_COOKIE_SECURE
+        value: "true"
+      - key: JWT_COOKIE_SAMESITE
+        value: lax
+      - key: APP_ENV
+        value: production
+      - key: ENABLE_SECURITY_HEADERS
+        value: "true"
+      - key: LOG_JSON
+        value: "true"
+      - key: SLOW_QUERY_THRESHOLD_MS
+        value: "250"
+      - key: CACHE_DEFAULT_TTL_SECONDS
+        value: "60"
+      - key: REDIS_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: EMAIL_HOST
+        value: smtp.gmail.com
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: MODERATION_AI_MODE
+        value: gemini
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: NOTE_PUBLISH_POINTS
+        value: "15"
+      - key: INITIAL_WALLET_POINTS
+        value: "200"
+      - key: TOP_CONTRIBUTOR_BONUS_POINTS
+        value: "100"
+      - key: POINTS_SELLER_REWARD_PERCENT
+        value: "80"
+      - key: PAYMENT_PENDING_TTL_SECONDS
+        value: "1800"
+      - key: AI_JOB_MAX_ATTEMPTS
+        value: "3"

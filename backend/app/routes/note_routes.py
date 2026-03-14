@@ -5,46 +5,45 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from bson import ObjectId
 from typing import Optional
-from pydantic import BaseModel
 
 from app.database import (
     notes_collection,
     uploads_collection,
-    leaderboard_collection,
-    reviews_collection,
     purchases_collection,
-    likes_collection,
-    colleges_collection,
     users_collection,
 )
 from app.schemas.note_schema import NoteCreate, NoteUpdate
 from app.models.note_model import note_helper
-from app.utils.dependencies import get_current_user, get_optional_current_user
+from app.utils.dependencies import get_current_user, get_optional_current_user, require_email_verified
 from app.utils.rate_limiter import search_limiter
 from app.services.ai_pipeline import enqueue_note_ai_analysis
 from app.utils.cache import cache_get_json, cache_set_json
 from app.utils.observability import log_if_slow
 from app.services.risk_service import compute_user_risk_score
+from app.services.feed_pipeline import (
+    append_trust_lookups,
+    append_trust_fields,
+    append_access_fields,
+)
 from app.database import reports_collection, disputes_collection, requests_collection
+from app.services.points_service import award_points
+from app.config import settings
 
 router = APIRouter(prefix="/notes", tags=["Notes"])
 logger = logging.getLogger(__name__)
 
 
-def _add_points(user_id, points: int, reason: str):
-    leaderboard_collection.insert_one(
-        {
-            "user_id": user_id,
-            "points": points,
-            "reason": reason,
-            "created_at": int(time.time()),
-        }
-    )
+def _safe_object_id(value):
+    if isinstance(value, ObjectId):
+        return value
+    if isinstance(value, str) and ObjectId.is_valid(value):
+        return ObjectId(value)
+    return None
 
 
-# Student uploads note (always pending)
+# Student uploads note (always pending) — requires verified college email
 @router.post("/")
-def create_note(note: NoteCreate, current_user=Depends(get_current_user)):
+def create_note(note: NoteCreate, current_user=Depends(require_email_verified)):
     new_note = note.model_dump()
     uploader_id = ObjectId(current_user["id"])
 
@@ -92,12 +91,39 @@ def create_note(note: NoteCreate, current_user=Depends(get_current_user)):
     new_note["ai"] = None  # AI analysis field
     
     # ✅ Cluster assignment (Trust Architecture)
-    if current_user.get("cluster_id"):
-        new_note["cluster_id"] = ObjectId(current_user["cluster_id"])
+    current_cluster_id = _safe_object_id(current_user.get("cluster_id"))
+    if current_cluster_id:
+        new_note["cluster_id"] = current_cluster_id
     else:
         # If user has no cluster (manual user?), explicitly set None or handle logic
         # For now, allow but maybe flag?
         new_note["cluster_id"] = None
+
+    collaborator_ids: list[ObjectId] = []
+    collaborator_splits: dict[str, float] = {}
+    split_total = 0.0
+    for collab in note.collaborators:
+        email = collab.email.strip().lower()
+        if email == current_user["email"].strip().lower():
+            continue
+        user = users_collection.find_one({"email": email}, {"_id": 1})
+        if not user:
+            raise HTTPException(status_code=400, detail=f"Collaborator not found: {email}")
+        user_id = user["_id"]
+        if user_id in collaborator_ids:
+            continue
+        collaborator_ids.append(user_id)
+        split_value = round(float(collab.split_percent), 2)
+        if split_value > 0:
+            collaborator_splits[str(user_id)] = split_value
+            split_total += split_value
+    if split_total > 95:
+        raise HTTPException(status_code=400, detail="Collaborator split total must be <= 95%")
+    if collaborator_ids:
+        new_note["collaborator_ids"] = collaborator_ids
+        new_note["collaborator_splits"] = collaborator_splits
+        new_note["owner_split_percent"] = round(100.0 - split_total, 2)
+    new_note.pop("collaborators", None)
 
     # validate note type requirements
     if note.note_type in ["pdf", "doc", "ppt", "image"]:
@@ -146,6 +172,17 @@ def create_note(note: NoteCreate, current_user=Depends(get_current_user)):
     result = notes_collection.insert_one(new_note)
     saved_note = notes_collection.find_one({"_id": result.inserted_id})
 
+    if settings.NOTE_PUBLISH_POINTS > 0:
+        try:
+            award_points(
+                user_id=uploader_id,
+                points=settings.NOTE_PUBLISH_POINTS,
+                reason="note_publish_initiated",
+                meta={"note_id": str(result.inserted_id)},
+            )
+        except Exception:
+            logger.exception("Failed to award note publish points")
+
     # mark upload as linked to this note (only for file-based notes)
     if note.note_type in ["pdf", "doc", "ppt", "image"]:
         uploads_collection.update_one(
@@ -178,7 +215,7 @@ def get_approved_notes(
     exam_tag: Optional[str] = Query(default=None),
     search: Optional[str] = Query(default=None),
     cluster_id: Optional[str] = Query(default=None), 
-    sort: Optional[str] = Query(default="newest", pattern="^(newest|oldest|downloads|rating|price_high|price_low|free_first)$"),
+    sort: Optional[str] = Query(default="newest", pattern="^(newest|oldest|downloads|views|rating|price_high|price_low|free_first)$"),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
     current_user = Depends(get_optional_current_user),
@@ -186,8 +223,10 @@ def get_approved_notes(
 ):
     query = {"status": "approved"}
 
-    if current_user and current_user.get("cluster_id"):
-        query["cluster_id"] = ObjectId(current_user["cluster_id"])
+    current_cluster_id = _safe_object_id((current_user or {}).get("cluster_id"))
+    if current_cluster_id:
+        # Include notes from the user's cluster OR notes with no cluster (uploaded by admins/manual users)
+        query["$or"] = [{"cluster_id": current_cluster_id}, {"cluster_id": None}, {"cluster_id": {"$exists": False}}]
     elif cluster_id and ObjectId.is_valid(cluster_id):
         query["cluster_id"] = ObjectId(cluster_id)
     
@@ -206,126 +245,9 @@ def get_approved_notes(
             query["$text"] = {"$search": search_term}
             text_score_needed = True
     
-    # Build aggregation pipeline for trust data
-    pipeline = [
-        {"$match": query},
-    ]
-    
-    # Join with users collection for uploader trust data
-    pipeline.append({
-        "$lookup": {
-            "from": "users",
-            "localField": "uploader_id",
-            "foreignField": "_id",
-            "as": "uploader"
-        }
-    })
-    
-    # Join with colleges collection for college name
-    pipeline.append({
-        "$lookup": {
-            "from": "colleges",
-            "localField": "uploader.cluster_id",
-            "foreignField": "_id",
-            "as": "college"
-        }
-    })
-    
-    # Join with reviews for rating
-    pipeline.append({
-        "$lookup": {
-            "from": "reviews",
-            "localField": "_id",
-            "foreignField": "note_id",
-            "as": "reviews"
-        }
-    })
-    
-    # Join with purchases to count seller sales
-    pipeline.append({
-        "$lookup": {
-            "from": "purchases",
-            "let": {"uploader_id": "$uploader_id"},
-            "pipeline": [
-                {
-                    "$lookup": {
-                        "from": "notes",
-                        "localField": "note_id",
-                        "foreignField": "_id",
-                        "as": "note"
-                    }
-                },
-                {"$unwind": "$note"},
-                {
-                    "$match": {
-                        "$expr": {"$eq": ["$note.uploader_id", "$$uploader_id"]},
-                        "status": "success"
-                    }
-                }
-            ],
-            "as": "seller_purchases"
-        }
-    })
-    
-    # Add computed fields
-    pipeline.append({
-        "$addFields": {
-            "uploader_name": {"$arrayElemAt": ["$uploader.name", 0]},
-            "verified_seller": {"$arrayElemAt": ["$uploader.verified_seller", 0]},
-            "college_name": {"$arrayElemAt": ["$college.name", 0]},
-            "avg_rating": {
-                "$cond": {
-                    "if": {"$gt": [{"$size": "$reviews"}, 0]},
-                    "then": {"$avg": "$reviews.rating"},
-                    "else": 0
-                }
-            },
-            "review_count": {"$size": "$reviews"},
-            "seller_total_sales": {"$size": "$seller_purchases"},
-            # Calculate seller trust level inline
-            "seller_trust_level": {
-                "$cond": {
-                    "if": {
-                        "$and": [
-                            {"$gte": [{"$size": "$seller_purchases"}, 20]},
-                            {"$gte": [
-                                {
-                                    "$cond": {
-                                        "if": {"$gt": [{"$size": "$reviews"}, 0]},
-                                        "then": {"$avg": "$reviews.rating"},
-                                        "else": 0
-                                    }
-                                },
-                                4.5
-                            ]}
-                        ]
-                    },
-                    "then": "top",
-                    "else": {
-                        "$cond": {
-                            "if": {
-                                "$and": [
-                                    {"$gte": [{"$size": "$seller_purchases"}, 5]},
-                                    {"$gte": [
-                                        {
-                                            "$cond": {
-                                                "if": {"$gt": [{"$size": "$reviews"}, 0]},
-                                                "then": {"$avg": "$reviews.rating"},
-                                                "else": 0
-                                            }
-                                        },
-                                        4.0
-                                    ]}
-                                ]
-                            },
-                            "then": "trusted",
-                            "else": "new"
-                        }
-                    }
-                }
-            }
-        }
-    })
+    pipeline = [{"$match": query}]
+    append_trust_lookups(pipeline, include_college=True)
+    append_trust_fields(pipeline, include_college=True)
     
     if text_score_needed:
         pipeline.append({"$addFields": {"_text_score": {"$meta": "textScore"}}})
@@ -350,60 +272,10 @@ def get_approved_notes(
     if text_score_needed:
         pipeline.append({"$sort": {"_text_score": -1, "_id": -1}})
     
-    # Access check (if user logged in)
-    if current_user:
-        user_id = ObjectId(current_user["id"])
-        pipeline.append({
-            "$lookup": {
-                "from": "purchases",
-                "let": {"note_id": "$_id"},
-                "pipeline": [
-                    {
-                        "$match": {
-                            "$expr": {
-                                "$and": [
-                                    {"$eq": ["$note_id", "$$note_id"]},
-                                    {
-                                        "$or": [
-                                            {
-                                                "$and": [
-                                                    {"$eq": ["$buyer_id", user_id]},
-                                                    {"$eq": ["$status", "success"]},
-                                                ]
-                                            },
-                                            {
-                                                "$and": [
-                                                    {"$eq": ["$user_id", user_id]},
-                                                    {"$in": ["$status", ["success", "paid", "free"]]},
-                                                ]
-                                            },
-                                        ]
-                                    }
-                                ]
-                            }
-                        }
-                    }
-                ],
-                "as": "user_purchase"
-            }
-        })
-        pipeline.append({
-            "$addFields": {
-                "has_access": {
-                    "$or": [
-                        {"$eq": ["$uploader_id", user_id]},
-                        {"$eq": ["$is_paid", False]},
-                        {"$gt": [{"$size": "$user_purchase"}, 0]}
-                    ]
-                }
-            }
-        })
-    else:
-        pipeline.append({
-            "$addFields": {
-                "has_access": {"$eq": ["$is_paid", False]}
-            }
-        })
+    append_access_fields(
+        pipeline,
+        ObjectId(current_user["id"]) if current_user else None,
+    )
     
     # Pagination
     pipeline.append({"$skip": skip})
@@ -425,16 +297,53 @@ def get_approved_notes(
 
 # My uploaded notes
 @router.get("/my")
-def my_notes(current_user=Depends(get_current_user)):
+def my_notes(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=200),
+    current_user=Depends(get_current_user),
+):
     notes = notes_collection.find(
         {"uploader_id": ObjectId(current_user["id"])}
-    ).sort("_id", -1)
+    ).sort("_id", -1).skip(skip).limit(limit)
     return [note_helper(n) for n in notes]
 
 
 @router.get("/my-uploads")
-def my_notes_alias(current_user=Depends(get_current_user)):
-    return my_notes(current_user=current_user)
+def my_notes_alias(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=200),
+    current_user=Depends(get_current_user),
+):
+    notes = notes_collection.find(
+        {"uploader_id": ObjectId(current_user["id"])}
+    ).sort("_id", -1).skip(skip).limit(limit)
+    return [note_helper(n) for n in notes]
+
+
+# Student-accessible: own rejected notes (no admin required)
+@router.get("/my/rejected")
+def my_rejected_notes(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=200),
+    current_user=Depends(get_current_user),
+):
+    notes = notes_collection.find(
+        {"uploader_id": ObjectId(current_user["id"]), "status": "rejected"}
+    ).sort("_id", -1).skip(skip).limit(limit)
+    return [note_helper(n) for n in notes]
+
+
+# Student-accessible: own pending notes
+@router.get("/my/pending")
+def my_pending_notes(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=200),
+    current_user=Depends(get_current_user),
+):
+    notes = notes_collection.find(
+        {"uploader_id": ObjectId(current_user["id"]), "status": "pending"}
+    ).sort("_id", -1).skip(skip).limit(limit)
+    return [note_helper(n) for n in notes]
 
 
 # Edit note metadata (owner only)
@@ -451,10 +360,12 @@ def update_note(
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")
 
-    # Only owner can edit
-    if str(note["uploader_id"]) != current_user["id"]:
+    is_owner = str(note["uploader_id"]) == current_user["id"]
+    collab_ids = note.get("collaborator_ids") or []
+    is_collaborator = ObjectId(current_user["id"]) in collab_ids or current_user["id"] in [str(c) for c in collab_ids]
+    if not is_owner and not is_collaborator:
         raise HTTPException(
-            status_code=403, detail="You can only edit your own note"
+            status_code=403, detail="You can only edit notes you collaborate on"
         )
         
     # ABAC: Prevent "Bait & Switch". Approved notes cannot be edited by students.
@@ -531,161 +442,22 @@ def note_details(note_id: str, current_user=Depends(get_optional_current_user)):
         raise HTTPException(status_code=400, detail="Invalid note_id")
 
     pipeline = [{"$match": {"_id": ObjectId(note_id), "status": "approved"}}]
-
-    # Joins
-    pipeline.append({
-        "$lookup": {
-            "from": "users",
-            "localField": "uploader_id",
-            "foreignField": "_id",
-            "as": "uploader"
-        }
-    })
-    
-    pipeline.append({
-        "$lookup": {
-            "from": "colleges",
-            "localField": "uploader.cluster_id",
-            "foreignField": "_id",
-            "as": "college"
-        }
-    })
-
-    pipeline.append({
-        "$lookup": {
-            "from": "reviews",
-            "localField": "_id",
-            "foreignField": "note_id",
-            "as": "reviews"
-        }
-    })
-    
-    pipeline.append({
-        "$lookup": {
-            "from": "purchases",
-            "let": {"uploader_id": "$uploader_id"},
-            "pipeline": [
-                {
-                    "$lookup": {
-                        "from": "notes",
-                        "localField": "note_id",
-                        "foreignField": "_id",
-                        "as": "note"
-                    }
-                },
-                {"$unwind": "$note"},
-                {
-                    "$match": {
-                        "$expr": {"$eq": ["$note.uploader_id", "$$uploader_id"]},
-                        "status": "success"
-                    }
-                }
-            ],
-            "as": "seller_purchases"
-        }
-    })
-
-    # Computed fields
-    pipeline.append({
-        "$addFields": {
-            "uploader_name": {"$arrayElemAt": ["$uploader.name", 0]},
-            "verified_seller": {"$arrayElemAt": ["$uploader.verified_seller", 0]},
-            "college_name": {"$arrayElemAt": ["$college.name", 0]},
-            "avg_rating": {
-                "$cond": {
-                    "if": {"$gt": [{"$size": "$reviews"}, 0]},
-                    "then": {"$avg": "$reviews.rating"},
-                    "else": 0
-                }
-            },
-            "review_count": {"$size": "$reviews"},
-            "seller_total_sales": {"$size": "$seller_purchases"},
-            "seller_trust_level": {
-                "$cond": {
-                    "if": {
-                        "$and": [
-                            {"$gte": [{"$size": "$seller_purchases"}, 20]},
-                            {"$gte": [{"$cond": {"if": {"$gt": [{"$size": "$reviews"}, 0]}, "then": {"$avg": "$reviews.rating"}, "else": 0}}, 4.5]}
-                        ]
-                    },
-                    "then": "top",
-                    "else": {
-                        "$cond": {
-                            "if": {
-                                "$and": [
-                                    {"$gte": [{"$size": "$seller_purchases"}, 5]},
-                                    {"$gte": [{"$cond": {"if": {"$gt": [{"$size": "$reviews"}, 0]}, "then": {"$avg": "$reviews.rating"}, "else": 0}}, 4.0]}
-                                ]
-                            },
-                            "then": "trusted",
-                            "else": "new"
-                        }
-                    }
-                }
-            }
-        }
-    })
-
-    # Access check
-    if current_user:
-        user_id = ObjectId(current_user["id"])
-        pipeline.append({
-            "$lookup": {
-                "from": "purchases",
-                "let": {"note_id": "$_id"},
-                "pipeline": [
-                    {
-                        "$match": {
-                            "$expr": {
-                                "$and": [
-                                    {"$eq": ["$note_id", "$$note_id"]},
-                                    {
-                                        "$or": [
-                                            {
-                                                "$and": [
-                                                    {"$eq": ["$buyer_id", user_id]},
-                                                    {"$eq": ["$status", "success"]},
-                                                ]
-                                            },
-                                            {
-                                                "$and": [
-                                                    {"$eq": ["$user_id", user_id]},
-                                                    {"$in": ["$status", ["success", "paid", "free"]]},
-                                                ]
-                                            },
-                                        ]
-                                    }
-                                ]
-                            }
-                        }
-                    }
-                ],
-                "as": "user_purchase"
-            }
-        })
-        pipeline.append({
-            "$addFields": {
-                "has_access": {
-                    "$or": [
-                        {"$eq": ["$uploader_id", user_id]},
-                        {"$eq": ["$is_paid", False]},
-                        {"$gt": [{"$size": "$user_purchase"}, 0]}
-                    ]
-                }
-            }
-        })
-    else:
-        pipeline.append({"$addFields": {"has_access": {"$eq": ["$is_paid", False]}}})
-
-    # Increment views
-    notes_collection.update_one(
-        {"_id": ObjectId(note_id)},
-        {"$inc": {"views": 1}}
+    append_trust_lookups(pipeline, include_college=True)
+    append_trust_fields(pipeline, include_college=True)
+    append_access_fields(
+        pipeline,
+        ObjectId(current_user["id"]) if current_user else None,
     )
 
     notes = list(notes_collection.aggregate(pipeline))
     if not notes:
         raise HTTPException(status_code=404, detail="Note not found")
+
+    # Increment views only after the note is confirmed visible.
+    notes_collection.update_one(
+        {"_id": ObjectId(note_id)},
+        {"$inc": {"views": 1}},
+    )
 
     return note_helper(notes[0])
 
@@ -701,155 +473,17 @@ def trending_notes(current_user=Depends(get_optional_current_user)):
     # Security: Filter by cluster
     query = {"status": "approved"}
     
-    if current_user and current_user.get("cluster_id"):
-        query["cluster_id"] = ObjectId(current_user["cluster_id"])
-        
+    current_cluster_id = _safe_object_id((current_user or {}).get("cluster_id"))
+    if current_cluster_id:
+        query["$or"] = [{"cluster_id": current_cluster_id}, {"cluster_id": None}, {"cluster_id": {"$exists": False}}]
+
     pipeline = [{"$match": query}]
-    
-    # Standard trust joins
-    pipeline.append({
-        "$lookup": {
-            "from": "users",
-            "localField": "uploader_id",
-            "foreignField": "_id",
-            "as": "uploader"
-        }
-    })
-    
-    pipeline.append({
-        "$lookup": {
-            "from": "colleges",
-            "localField": "uploader.cluster_id",
-            "foreignField": "_id",
-            "as": "college"
-        }
-    })
-
-    pipeline.append({
-        "$lookup": {
-            "from": "reviews",
-            "localField": "_id",
-            "foreignField": "note_id",
-            "as": "reviews"
-        }
-    })
-    
-    pipeline.append({
-        "$lookup": {
-            "from": "purchases",
-            "let": {"uploader_id": "$uploader_id"},
-            "pipeline": [
-                {
-                    "$lookup": {
-                        "from": "notes",
-                        "localField": "note_id",
-                        "foreignField": "_id",
-                        "as": "note"
-                    }
-                },
-                {"$unwind": "$note"},
-                {
-                    "$match": {
-                        "$expr": {"$eq": ["$note.uploader_id", "$$uploader_id"]},
-                        "status": "success"
-                    }
-                }
-            ],
-            "as": "seller_purchases"
-        }
-    })
-
-    # Computed fields
-    pipeline.append({
-        "$addFields": {
-            "uploader_name": {"$arrayElemAt": ["$uploader.name", 0]},
-            "verified_seller": {"$arrayElemAt": ["$uploader.verified_seller", 0]},
-            "college_name": {"$arrayElemAt": ["$college.name", 0]},
-            "avg_rating": {
-                "$cond": {
-                    "if": {"$gt": [{"$size": "$reviews"}, 0]},
-                    "then": {"$avg": "$reviews.rating"},
-                    "else": 0
-                }
-            },
-            "review_count": {"$size": "$reviews"},
-            "seller_total_sales": {"$size": "$seller_purchases"},
-            "seller_trust_level": {
-                "$cond": {
-                    "if": {
-                        "$and": [
-                            {"$gte": [{"$size": "$seller_purchases"}, 20]},
-                            {"$gte": [{"$cond": {"if": {"$gt": [{"$size": "$reviews"}, 0]}, "then": {"$avg": "$reviews.rating"}, "else": 0}}, 4.5]}
-                        ]
-                    },
-                    "then": "top",
-                    "else": {
-                        "$cond": {
-                            "if": {
-                                "$and": [
-                                    {"$gte": [{"$size": "$seller_purchases"}, 5]},
-                                    {"$gte": [{"$cond": {"if": {"$gt": [{"$size": "$reviews"}, 0]}, "then": {"$avg": "$reviews.rating"}, "else": 0}}, 4.0]}
-                                ]
-                            },
-                            "then": "trusted",
-                            "else": "new"
-                        }
-                    }
-                }
-            }
-        }
-    })
-
-    # Access check (if user logged in)
-    if current_user:
-        user_id = ObjectId(current_user["id"])
-        pipeline.append({
-            "$lookup": {
-                "from": "purchases",
-                "let": {"note_id": "$_id"},
-                "pipeline": [
-                    {
-                        "$match": {
-                            "$expr": {
-                                "$and": [
-                                    {"$eq": ["$note_id", "$$note_id"]},
-                                    {
-                                        "$or": [
-                                            {
-                                                "$and": [
-                                                    {"$eq": ["$buyer_id", user_id]},
-                                                    {"$eq": ["$status", "success"]},
-                                                ]
-                                            },
-                                            {
-                                                "$and": [
-                                                    {"$eq": ["$user_id", user_id]},
-                                                    {"$in": ["$status", ["success", "paid", "free"]]},
-                                                ]
-                                            },
-                                        ]
-                                    }
-                                ]
-                            }
-                        }
-                    }
-                ],
-                "as": "user_purchase"
-            }
-        })
-        pipeline.append({
-            "$addFields": {
-                "has_access": {
-                    "$or": [
-                        {"$eq": ["$uploader_id", user_id]},
-                        {"$eq": ["$is_paid", False]},
-                        {"$gt": [{"$size": "$user_purchase"}, 0]}
-                    ]
-                }
-            }
-        })
-    else:
-        pipeline.append({"$addFields": {"has_access": {"$eq": ["$is_paid", False]}}})
+    append_trust_lookups(pipeline, include_college=True)
+    append_trust_fields(pipeline, include_college=True)
+    append_access_fields(
+        pipeline,
+        ObjectId(current_user["id"]) if current_user else None,
+    )
 
     pipeline.append({"$sort": {"views": -1}})
     pipeline.append({"$limit": 20})

@@ -45,6 +45,7 @@ from app.routes.risk_routes import router as risk_router
 from app.routes.space_routes import router as space_router
 from app.routes.monetization_routes import router as monetization_router
 from app.routes.note_features_routes import router as note_features_router
+from app.routes.wallet_routes import router as wallet_router
 from app.utils.observability import JsonLogFormatter, RequestIDMiddleware, SecurityHeadersMiddleware
 from app.config import settings
 
@@ -120,6 +121,7 @@ app.include_router(ops_router)
 app.include_router(risk_router)
 app.include_router(space_router)
 app.include_router(monetization_router)
+app.include_router(wallet_router)
 
 
 @app.get("/")

@@ -10,6 +10,10 @@ export default function AdminAnalytics() {
   const [data, setData] = useState(null);
   const [riskUsers, setRiskUsers] = useState([]);
   const [days, setDays] = useState(30);
+  const [rewardTopN, setRewardTopN] = useState(10);
+  const [bootstrapLimit, setBootstrapLimit] = useState(500);
+  const [rewardLoading, setRewardLoading] = useState(false);
+  const [bootstrapLoading, setBootstrapLoading] = useState(false);
 
   const canView = user?.role === "admin";
 
@@ -33,6 +37,30 @@ export default function AdminAnalytics() {
     }, 0);
     return () => clearTimeout(t);
   }, [canView, load]);
+
+  const rewardTopContributors = async () => {
+    try {
+      setRewardLoading(true);
+      const res = await api.post(`${ENDPOINTS.admin.rewardTopContributors}?top_n=${rewardTopN}`);
+      toast.success(`Top contributor bonus applied to ${res.data?.awarded || 0} users`);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to reward top contributors");
+    } finally {
+      setRewardLoading(false);
+    }
+  };
+
+  const bootstrapInitialPoints = async () => {
+    try {
+      setBootstrapLoading(true);
+      const res = await api.post(`${ENDPOINTS.wallet.bootstrapInitial}?limit=${bootstrapLimit}`);
+      toast.success(`Initial points backfilled for ${res.data?.awarded || 0} users`);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to bootstrap points");
+    } finally {
+      setBootstrapLoading(false);
+    }
+  };
 
   if (!canView) {
     return (
@@ -92,6 +120,53 @@ export default function AdminAnalytics() {
               </div>
               <div className="mt-4 border-t border-zinc-100 pt-3">
                 <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">Inactive users: {data.churn_signals?.inactive_users || 0}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="border border-black bg-white p-6">
+            <h3 className="mb-4 text-sm font-black uppercase tracking-wider">Points Economy Controls</h3>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div className="border border-zinc-200 p-4">
+                <p className="mb-2 text-xs font-black uppercase tracking-wider text-zinc-700">Top Contributor Reward</p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    className="input-surface max-w-[140px]"
+                    min={1}
+                    max={100}
+                    value={rewardTopN}
+                    onChange={(e) => setRewardTopN(parseInt(e.target.value, 10) || 10)}
+                  />
+                  <button
+                    onClick={rewardTopContributors}
+                    disabled={rewardLoading}
+                    className="btn-primary px-4 py-2 text-xs"
+                  >
+                    {rewardLoading ? "Running..." : "Reward Top N"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="border border-zinc-200 p-4">
+                <p className="mb-2 text-xs font-black uppercase tracking-wider text-zinc-700">Initial Points Backfill</p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    className="input-surface max-w-[140px]"
+                    min={1}
+                    max={5000}
+                    value={bootstrapLimit}
+                    onChange={(e) => setBootstrapLimit(parseInt(e.target.value, 10) || 500)}
+                  />
+                  <button
+                    onClick={bootstrapInitialPoints}
+                    disabled={bootstrapLoading}
+                    className="btn-secondary px-4 py-2 text-xs"
+                  >
+                    {bootstrapLoading ? "Running..." : "Backfill"}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

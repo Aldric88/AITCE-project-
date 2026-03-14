@@ -63,8 +63,12 @@ python run_ai_worker.py
 
 - `POST /ai/analyze-note/{note_id}` now uses a hybrid analyzer:
   - Reuses previous analysis by `file_hash` (no repeated model cost).
-  - Tries free local Ollama first (`MODERATION_AI_MODE=auto`).
-  - Falls back to deterministic rules engine if model is unavailable.
+  - Tries Gemini first (`MODERATION_AI_MODE=auto` with `GEMINI_API_KEY`), then Ollama.
+  - Falls back to deterministic rules engine if model calls are unavailable.
+- Supported values:
+  - `MODERATION_AI_MODE=gemini|ollama|auto|rules`
+  - `GEMINI_API_KEY=<your_key>`
+  - `GEMINI_MODEL=gemini-2.5-flash`
 - Regenerate bypassing cache:
   - `POST /ai/reports/{note_id}/regenerate`
 - Moderator-focused queue:
@@ -73,9 +77,10 @@ python run_ai_worker.py
 ## AI Cluster Classification (Signup Domain Fallback)
 
 - Signup still prefers deterministic `college_domains` mapping.
-- For unknown domains, optional local Ollama inference can suggest/assign cluster type.
+- For unknown domains, optional Gemini/Ollama inference can suggest/assign cluster type.
 - Environment variables:
-  - `CLUSTER_AI_MODE=auto|ollama|off` (default: `auto`)
+  - `CLUSTER_AI_MODE=auto|gemini|ollama|off` (default: `auto`)
+  - `CLUSTER_AI_GEMINI_MODEL` (default: `gemini-2.5-flash`)
   - `CLUSTER_AI_OLLAMA_URL` (default: `http://127.0.0.1:11434/api/generate`)
   - `CLUSTER_AI_OLLAMA_MODEL` (default: `llama3.1:8b`)
   - `CLUSTER_AI_TIMEOUT_SECONDS` (default: `2.5`)

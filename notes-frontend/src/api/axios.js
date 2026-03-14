@@ -2,7 +2,7 @@ import axios from "axios";
 
 const defaultApiBaseUrl =
   import.meta.env.VITE_API_BASE_URL ||
-  `${window.location.protocol}//${window.location.hostname}:8000`;
+  `${window.location.protocol}//${window.location.hostname}:8001`;
 
 const api = axios.create({
   baseURL: defaultApiBaseUrl,

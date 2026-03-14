@@ -10,14 +10,15 @@ from app.utils.dependencies import get_current_user
 from app.utils.pdf_watermark import watermark_pdf_bytes
 from app.utils.image_watermark import watermark_image_bytes
 from app.utils.rate_limiter import check_rate_limit
+from app.services.pass_service import has_active_creator_pass
 
 router = APIRouter(prefix="/secure", tags=["Secure Viewer"])
 
 SESSION_TTL_SECONDS = 10 * 60  # 10 minutes
 
 
-def _has_purchase_access(user_id: str, note_id: str) -> bool:
-    return purchases_collection.find_one(
+def _has_purchase_access(user_id: str, note_id: str, seller_id: ObjectId | None = None) -> bool:
+    purchase = purchases_collection.find_one(
         {
             "note_id": ObjectId(note_id),
             "$or": [
@@ -25,7 +26,12 @@ def _has_purchase_access(user_id: str, note_id: str) -> bool:
                 {"user_id": ObjectId(user_id), "status": {"$in": ["success", "paid", "free"]}},
             ],
         }
-    ) is not None
+    )
+    if purchase is not None:
+        return True
+    if seller_id is None:
+        return False
+    return has_active_creator_pass(user_id, seller_id)
 
 
 def _resolve_note_file(file_url: str):
@@ -73,12 +79,12 @@ def start_session(note_id: str, current_user=Depends(get_current_user)):
     # Check access (paid/free rules)
     if note.get("is_paid", False):
         # Paid note: user must have successful purchase
-        existing = _has_purchase_access(current_user["id"], note_id)
+        existing = _has_purchase_access(current_user["id"], note_id, note.get("uploader_id"))
         if not existing:
             raise HTTPException(status_code=403, detail="Buy this paid note to view")
     else:
         # Free note must be unlocked too
-        existing = _has_purchase_access(current_user["id"], note_id)
+        existing = _has_purchase_access(current_user["id"], note_id, note.get("uploader_id"))
         if not existing:
             raise HTTPException(status_code=403, detail="Unlock this note first")
 
@@ -168,16 +174,13 @@ def check_note_access(note, note_id: str, current_user: dict):
     # Paid note access check
     if note.get("is_paid", False):
         is_owner = str(note["uploader_id"]) == current_user["id"]
+        purchase_ok = _has_purchase_access(
+            current_user["id"],
+            note_id,
+            note.get("uploader_id"),
+        )
 
-        purchase = purchases_collection.find_one({
-            "note_id": ObjectId(note_id),
-            "$or": [
-                {"buyer_id": ObjectId(current_user["id"]), "status": "success"},
-                {"user_id": ObjectId(current_user["id"]), "status": {"$in": ["success", "paid", "free"]}},
-            ],
-        })
-
-        if not purchase and not is_owner:
+        if not purchase_ok and not is_owner:
             raise HTTPException(status_code=403, detail="Purchase required to access this note")
 
 

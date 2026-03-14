@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../api/axios";
 import { API_BASE_URL } from "../api/baseUrl";
-import toast from "react-hot-toast";
 import FollowButton from "./FollowButton";
 import Spinner from "./Spinner";
 import { Link } from "react-router-dom";
@@ -15,8 +14,8 @@ export default function SuggestedCreators() {
       setLoading(true);
       const res = await api.get("/suggestions/creators?limit=8");
       setCreators(res.data);
-    } catch (err) {
-      toast.error(err.response?.data?.detail || "Failed to load suggestions");
+    } catch {
+      // Fail silently — suggestions are non-critical, no toast needed
     } finally {
       setLoading(false);
     }

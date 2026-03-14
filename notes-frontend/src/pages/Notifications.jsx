@@ -18,8 +18,7 @@ export default function Notifications() {
     apiCachedFetcher(ENDPOINTS.notifications.list),
     {
       staleTimeMs: 15000,
-      refetchIntervalMs: 30000,
-      onError: () => toast.error("Failed to load notifications"),
+      refetchIntervalMs: 60000,
     },
   );
   const unreadQuery = useApiQuery(
@@ -27,7 +26,7 @@ export default function Notifications() {
     apiCachedFetcher(ENDPOINTS.notifications.unreadCount),
     {
       staleTimeMs: 10000,
-      refetchIntervalMs: 30000,
+      refetchIntervalMs: 60000,
     },
   );
   const prefsQuery = useApiQuery(

@@ -88,6 +88,59 @@ def _ai_classify_university_type(domain):
     if mode in {"off", "disabled", "rules"}:
         return None
 
+    if mode in {"auto", "gemini"}:
+        api_key = os.getenv("GEMINI_API_KEY", "").strip()
+        if api_key:
+            model = os.getenv("CLUSTER_AI_GEMINI_MODEL", os.getenv("GEMINI_MODEL", "gemini-2.5-flash"))
+            timeout = float(os.getenv("CLUSTER_AI_TIMEOUT_SECONDS", "2.5"))
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+            payload = {
+                "contents": [
+                    {
+                        "parts": [
+                            {
+                                "text": (
+                                    "Classify the likely university_type for a college email domain.\n"
+                                    "Allowed values: anna_affiliated, autonomous, deemed, unknown.\n"
+                                    "Return strict JSON with keys: university_type, confidence, reason.\n"
+                                    f"domain: {domain}\n"
+                                )
+                            }
+                        ]
+                    }
+                ],
+                "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"},
+            }
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=timeout) as resp:
+                    raw = resp.read().decode("utf-8")
+                data = json.loads(raw)
+                text_out = (
+                    data.get("candidates", [{}])[0]
+                    .get("content", {})
+                    .get("parts", [{}])[0]
+                    .get("text", "")
+                )
+                parsed = json.loads((text_out or "").strip().replace("```json", "").replace("```", "").strip())
+                utype = _normalize_university_type(parsed.get("university_type"))
+                if utype == "unknown":
+                    return None
+                confidence = float(parsed.get("confidence", 0))
+                return {
+                    "university_type": utype,
+                    "confidence": confidence,
+                    "reason": str(parsed.get("reason", "")),
+                }
+            except (ValueError, KeyError, TypeError, urllib.error.URLError, TimeoutError, json.JSONDecodeError, IndexError):
+                if mode == "gemini":
+                    raise
+
     ollama_url = os.getenv("CLUSTER_AI_OLLAMA_URL", os.getenv("OLLAMA_URL", "http://127.0.0.1:11434/api/generate"))
     ollama_model = os.getenv("CLUSTER_AI_OLLAMA_MODEL", os.getenv("OLLAMA_MODEL", "llama3.1:8b"))
     timeout = float(os.getenv("CLUSTER_AI_TIMEOUT_SECONDS", "2.5"))

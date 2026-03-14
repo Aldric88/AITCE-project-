@@ -376,31 +376,21 @@ File: `/Users/aldricanto/Documents/Notes market/notes-frontend/src/components/La
 
 These are important for teammates before adding features:
 
-1. Route prefix mismatch (`purchase` vs `purchases`).
-- Backend exposes `/purchase/*` in `/Users/aldricanto/Documents/Notes market/backend/app/routes/purchase_routes.py`.
-- Frontend `MyPurchases` currently calls `/purchases/my` in `/Users/aldricanto/Documents/Notes market/notes-frontend/src/pages/MyPurchases.jsx`.
+1. Route/module size is still high for a few core screens/routes.
+- Backend `/Users/aldricanto/Documents/Notes market/backend/app/routes/note_routes.py` remains a large mixed-responsibility module.
+- Frontend `/Users/aldricanto/Documents/Notes market/notes-frontend/src/pages/ModerationDashboard.jsx` remains a large single-page component.
 
-2. Purchase response shape mismatch.
-- Backend `/purchase/my` returns minimal purchase fields.
-- Frontend `MyPurchases` expects nested `p.note.*` data.
+2. Frontend test depth is still limited.
+- CI validates lint/build, but integration-level React user-flow tests are still thin.
 
-3. My uploads route mismatch used by bundles page.
-- Frontend bundles calls `/notes/my-uploads` in `/Users/aldricanto/Documents/Notes market/notes-frontend/src/pages/Bundles.jsx`.
-- Backend route is `/notes/my` in `/Users/aldricanto/Documents/Notes market/backend/app/routes/note_routes.py`.
+3. SSE notification stream is optimized for low query load, but cross-process push semantics depend on deployment topology.
+- For horizontally scaled workers, prefer Redis-backed pub/sub fan-out for strict real-time parity.
 
-4. `follow_routes.py` returns `note_helper(...)` without importing it.
-- File: `/Users/aldricanto/Documents/Notes market/backend/app/routes/follow_routes.py`
-- Can trigger runtime error on `/follow/feed`.
+4. Offline mode currently focuses on shell + cached library metadata.
+- Full binary note sync and conflict-aware annotation synchronization are still incremental roadmap items.
 
-5. AI export endpoint uses `Response` without import.
-- File: `/Users/aldricanto/Documents/Notes market/backend/app/routes/ai_routes.py`
-
-6. Auto-AI analysis file path inconsistency in note creation.
-- File path in `create_note` currently builds `uploads/{stored_name}`.
-- Current storage is primarily `uploads/private/{stored_name}`.
-
-7. Visual consistency drift in a few screens.
-- Some pages still use gradient/glass/slate style classes conflicting with neutral theme baseline.
+5. Typed client adoption is in progress.
+- New typed wrappers should be used consistently page-by-page to fully remove route drift risk.
 
 
 ## 18. Recommended Team Conventions Going Forward
@@ -429,4 +419,3 @@ These are important for teammates before adding features:
 
 3. Verify core flows
 - Signup -> Login -> Dashboard -> Upload -> Moderate -> Purchase -> Secure View
-

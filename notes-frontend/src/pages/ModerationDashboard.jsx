@@ -4,6 +4,7 @@ import api from "../api/axios";
 import toast from "react-hot-toast";
 import Spinner from "../components/Spinner";
 import { showAiResultToast } from "../utils/aiFeedback.jsx";
+import { fetchModerationBundle, fetchModerationInsights } from "./moderation/dashboardApi";
 
 export default function ModerationDashboard() {
   const [tab, setTab] = useState("pending"); // pending / rejected / approved
@@ -57,18 +58,9 @@ export default function ModerationDashboard() {
   const fetchAll = async () => {
     try {
       setLoading(true);
-      const [p, r, a, q, an, rl, ap, ct] = await Promise.allSettled([
-        api.get("/notes/pending"),
-        api.get("/notes/rejected"),
-        api.get("/notes/approved"),
-        api.get("/moderation/features/queue?limit=5"),
-        api.get("/moderation/features/analytics?days=30"),
-        api.get("/moderation/features/rules"),
-        api.get("/moderation/features/appeals?status=open"),
-        api.get("/moderation/features/confidence-trend?days=14"),
-      ]);
+      const { p, r, a, q, an, rl, ap, ct } = await fetchModerationBundle(api);
 
-      if (p.status === "fulfilled") setPending(p.value.data || []);
+      if (p.status === "fulfilled") setPending(p.value.data?.items || p.value.data || []);
       if (r.status === "fulfilled") setRejected(r.value.data || []);
       if (a.status === "fulfilled") setApproved(a.value.data || []);
       if (q.status === "fulfilled") {
@@ -76,7 +68,7 @@ export default function ModerationDashboard() {
       }
       if (an.status === "fulfilled") setAnalytics(an.value.data || null);
       if (rl.status === "fulfilled") setRules(rl.value.data || null);
-      if (ap.status === "fulfilled") setAppeals(ap.value.data || []);
+      if (ap.status === "fulfilled") setAppeals(ap.value.data?.items || ap.value.data || []);
       if (ct.status === "fulfilled") setConfidenceTrend(ct.value.data?.points || []);
     } catch (err) {
       toast.error(err.response?.data?.detail || "Failed to load moderation data");
@@ -226,18 +218,11 @@ export default function ModerationDashboard() {
   const loadInsights = async (note) => {
     try {
       setInsightsLoading(true);
-      const requests = [
-        api.get(`/moderation/features/explain/${note.id}`),
-        api.get(`/moderation/features/quality-gate/check/${note.id}`),
-        api.get(`/moderation/features/duplicates/${note.id}`),
-        api.post(`/moderation/features/suggest-tags/${note.id}`),
-        api.get(`/moderation/features/timeline/${note.id}`),
-        api.get(`/moderation/features/diff/${note.id}`),
-      ];
-      if (note.uploader_id) {
-        requests.push(api.get(`/moderation/features/creator-trust/${note.uploader_id}`));
-      }
-      const [explain, quality, duplicates, tags, timeline, diff, trust] = await Promise.allSettled(requests);
+      const { explain, quality, duplicates, tags, timeline, diff, trust } = await fetchModerationInsights(
+        api,
+        note.id,
+        note.uploader_id,
+      );
       setInsights({
         explain: explain.status === "fulfilled" ? explain.value.data : null,
         quality: quality.status === "fulfilled" ? quality.value.data : null,

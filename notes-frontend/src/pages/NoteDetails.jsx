@@ -11,15 +11,21 @@ import ReportModal from "../components/ReportModal";
 import DisputeModal from "../components/DisputeModal";
 import Comments from "../components/Comments";
 import { checkoutPaidNote } from "../utils/paymentCheckout";
+import { getMyAnnotation, upsertMyAnnotation, getSmartStudyPack } from "../api/typedClient";
+import { useAuth } from "../auth/AuthContext";
 
 export default function NoteDetails() {
   const { noteId } = useParams();
+  const { user, refreshUser } = useAuth();
 
   const [note, setNote] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [recommendations, setRecommendations] = useState([]);
   const [versions, setVersions] = useState([]);
   const [confidence, setConfidence] = useState(null);
+  const [studyPack, setStudyPack] = useState(null);
+  const [annotation, setAnnotation] = useState("");
+  const [annotationSaving, setAnnotationSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [buying, setBuying] = useState(false);
   const [couponCode, setCouponCode] = useState("");
@@ -39,12 +45,21 @@ export default function NoteDetails() {
       setNote(noteRes.data);
       setReviews(reviewRes.data);
       setRecommendations(recRes.data);
-      const [versionRes, confidenceRes] = await Promise.allSettled([
+      const [versionRes, confidenceRes, smartRes, annotationRes] = await Promise.allSettled([
         api.get(ENDPOINTS.notes.versions(noteId)),
         api.get(ENDPOINTS.notes.confidence(noteId)),
+        getSmartStudyPack(noteId),
+        getMyAnnotation(noteId),
       ]);
       if (versionRes.status === "fulfilled") setVersions(versionRes.value.data || []);
       if (confidenceRes.status === "fulfilled") setConfidence(confidenceRes.value.data || null);
+      if (smartRes.status === "fulfilled") setStudyPack(smartRes.value || null);
+      if (annotationRes.status === "fulfilled") {
+        setAnnotation(annotationRes.value?.content || "");
+      } else {
+        const draft = localStorage.getItem(`note-annotation-draft:${noteId}`);
+        if (draft) setAnnotation(draft);
+      }
     } catch (err) {
       toast.error(err.response?.data?.detail || "Failed to load note details");
     } finally {
@@ -81,10 +96,50 @@ export default function NoteDetails() {
         toast.success(res.data.paid ? "Purchased" : "Unlocked");
       }
       fetchDetails();
+      refreshUser();
     } catch (err) {
       toast.error(err.response?.data?.detail || err.message || "Purchase failed");
     } finally {
       setBuying(false);
+    }
+  };
+
+  const buyNoteWithPoints = async () => {
+    if (!note?.id) return;
+
+    try {
+      setBuying(true);
+      const res = await api.post(
+        ENDPOINTS.purchases.buy(note.id),
+        { payment_method: "points" },
+        {
+          headers: {
+            "X-Idempotency-Key": `${note.id}-points-${Date.now()}-${crypto.randomUUID()}`,
+          },
+        },
+      );
+      toast.success(res.data?.message || "Purchased with points");
+      fetchDetails();
+      refreshUser();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || err.message || "Points purchase failed");
+    } finally {
+      setBuying(false);
+    }
+  };
+
+  const saveAnnotation = async () => {
+    if (!noteId) return;
+    try {
+      setAnnotationSaving(true);
+      await upsertMyAnnotation(noteId, { content: annotation, source: "web" });
+      localStorage.removeItem(`note-annotation-draft:${noteId}`);
+      toast.success("Annotations synced");
+    } catch {
+      localStorage.setItem(`note-annotation-draft:${noteId}`, annotation);
+      toast.error("Saved locally (offline draft). Sync will be available when network recovers.");
+    } finally {
+      setAnnotationSaving(false);
     }
   };
 
@@ -181,20 +236,45 @@ export default function NoteDetails() {
                   style={{ height: "600px" }}
                 />
               ) : (
-                <div className="flex h-64 flex-col items-center justify-center bg-gray-50 p-6 text-center">
-                  <h3 className="mb-2 text-xl font-bold uppercase text-black">Content Locked</h3>
-                  <p className="mb-6 max-w-sm text-gray-500">
-                    Purchase this note to unlock the secure viewer and download options.
+                <div className="flex flex-col items-center justify-center bg-gray-50 p-8 text-center">
+                  <div className="mb-4 flex h-16 w-16 items-center justify-center border-2 border-black bg-white">
+                    <svg className="h-8 w-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                  <h3 className="mb-2 text-xl font-black uppercase tracking-tight text-black">Content Locked</h3>
+                  <p className="mb-1 max-w-sm text-sm text-gray-500">
+                    Purchase this note to unlock the secure viewer.
+                  </p>
+                  <p className="mb-5 text-xs font-bold uppercase tracking-wider text-zinc-500">
+                    Price: <span className="text-black">₹{note.price}</span> · Your wallet: <span className="text-black">{user?.wallet_points ?? 0} pts</span>
                   </p>
                   <input
-                    className="input-surface mb-3 max-w-xs"
+                    className="input-surface mb-4 max-w-xs w-full"
                     placeholder="Coupon code (optional)"
                     value={couponCode}
                     onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
                   />
-                  <button onClick={buyNote} disabled={buying} className="btn-primary">
-                    {buying ? "Processing..." : `Buy Now for INR ${note.price}`}
-                  </button>
+                  <div className="flex flex-wrap justify-center gap-3">
+                    <button
+                      onClick={buyNoteWithPoints}
+                      disabled={buying || (user?.wallet_points ?? 0) < (note?.price ?? 0)}
+                      className="btn-secondary disabled:opacity-40 disabled:cursor-not-allowed"
+                      title={(user?.wallet_points ?? 0) < (note?.price ?? 0) ? "Not enough points" : ""}
+                    >
+                      {buying ? "Processing..." : `Use ${note.price} Points`}
+                    </button>
+                    <button
+                      onClick={buyNote}
+                      disabled={buying}
+                      className="btn-primary"
+                    >
+                      {buying ? "Processing..." : `Pay ₹${note.price} (Demo)`}
+                    </button>
+                  </div>
+                  <p className="mt-3 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                    Demo mode: INR payment is simulated — no real charge
+                  </p>
                 </div>
               )}
             </div>
@@ -260,6 +340,38 @@ export default function NoteDetails() {
                   ))}
                 </div>
               )}
+            </div>
+
+            {studyPack && (
+              <div className="border border-black bg-white p-6">
+                <h3 className="mb-4 border-b border-black pb-2 text-lg font-black uppercase tracking-wide">Smart Study Pack</h3>
+                <p className="text-sm text-zinc-700">{studyPack.summary}</p>
+                {Array.isArray(studyPack.key_points) && studyPack.key_points.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {studyPack.key_points.slice(0, 6).map((kp) => (
+                      <span key={kp} className="border border-zinc-200 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-zinc-600">
+                        {kp}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="border border-black bg-white p-6">
+              <h3 className="mb-4 border-b border-black pb-2 text-lg font-black uppercase tracking-wide">My Annotations</h3>
+              <textarea
+                className="w-full border border-zinc-300 p-3 text-sm text-zinc-700 focus:border-black focus:outline-none"
+                rows={6}
+                value={annotation}
+                onChange={(e) => setAnnotation(e.target.value)}
+                placeholder="Write your personal summary, doubts, and quick revision notes..."
+              />
+              <div className="mt-3 flex justify-end">
+                <button onClick={saveAnnotation} disabled={annotationSaving} className="btn-secondary px-4 py-2 text-xs">
+                  {annotationSaving ? "Saving..." : "Sync Notes"}
+                </button>
+              </div>
             </div>
 
             <div className="border border-black bg-white p-6">

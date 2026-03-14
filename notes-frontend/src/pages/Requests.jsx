@@ -93,6 +93,21 @@ export default function Requests() {
     }
   };
 
+  const pledgeRequest = async (requestId, amount) => {
+    const pts = parseInt(amount, 10);
+    if (!pts || pts < 1) {
+      toast.error("Enter a valid pledge amount");
+      return;
+    }
+    try {
+      await api.post(ENDPOINTS.requests.pledge(requestId), { amount: pts });
+      toast.success(`Pledged ${pts} points`);
+      reloadRequests();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to pledge");
+    }
+  };
+
   return (
     <Layout title="Note Requests">
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -197,11 +212,16 @@ export default function Requests() {
                       </button>
                     )}
                   </div>
-                  <div className="mt-3 flex items-center justify-between border-t border-zinc-100 pt-3">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Votes: {r.vote_count || 0}</span>
-                    <button onClick={() => voteRequest(r.id)} className="btn-secondary text-xs px-3 py-1">
-                      Vote
-                    </button>
+                  <div className="mt-3 border-t border-zinc-100 pt-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                        Votes: {r.vote_count || 0} • Bounty: {r.bounty_total || 0} pts ({r.pledge_count || 0} pledges)
+                      </span>
+                      <button onClick={() => voteRequest(r.id)} className="btn-secondary text-xs px-3 py-1">
+                        Vote
+                      </button>
+                    </div>
+                    <PledgeRow requestId={r.id} onPledge={pledgeRequest} />
                   </div>
                 </div>
               ))}
@@ -254,5 +274,27 @@ export default function Requests() {
         )}
       </div>
     </Layout>
+  );
+}
+
+function PledgeRow({ requestId, onPledge }) {
+  const [amount, setAmount] = useState("");
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        className="input-surface w-24 text-xs"
+        type="number"
+        min={1}
+        placeholder="Pts"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+      />
+      <button
+        onClick={() => { onPledge(requestId, amount); setAmount(""); }}
+        className="btn-secondary text-xs px-3 py-1"
+      >
+        Pledge Points
+      </button>
+    </div>
   );
 }

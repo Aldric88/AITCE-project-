@@ -1,17 +1,20 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: "class",
   content: ["./index.html", "./src/**/*.{js,jsx}"],
   theme: {
     extend: {
       colors: {
-        background: "#ffffff",
-        foreground: "#000000",
+        background: "var(--color-background)",
+        foreground: "var(--color-foreground)",
         primary: "#000000",
         "primary-foreground": "#ffffff",
-        muted: "#f3f4f6",
-        "muted-foreground": "#6b7280",
-        border: "#e5e7eb",
+        muted: "var(--color-muted)",
+        "muted-foreground": "var(--color-muted-foreground)",
+        border: "var(--color-border)",
         ring: "#000000",
+        surface: "var(--color-surface)",
+        "surface-raised": "var(--color-surface-raised)",
       },
       borderRadius: {
         lg: "0px",

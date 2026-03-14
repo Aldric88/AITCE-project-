@@ -4,14 +4,19 @@ import api from "../api/axios";
 import { ENDPOINTS } from "../api/endpoints";
 import { normalizeLibraryRecord } from "../api/normalizers";
 import { cachedGet, invalidateGet } from "../api/queryCache";
+import { getMyLibrary } from "../api/typedClient";
 import toast from "react-hot-toast";
 import Spinner from "../components/Spinner";
 import { Link } from "react-router-dom";
 import jsPDF from "jspdf";
 
+const LIBRARY_CACHE_KEY = "notes_market:library_cache:v1";
+
 export default function MyLibrary() {
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [offlineMode, setOfflineMode] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState(null);
 
   // ✅ search + grouping + sorting + filters
   const [query, setQuery] = useState("");
@@ -24,10 +29,35 @@ export default function MyLibrary() {
   const fetchLibrary = async () => {
     try {
       setLoading(true);
-      const res = await cachedGet(ENDPOINTS.library.mine, { ttlMs: 15000 });
-      setNotes((res.data || []).map((row) => normalizeLibraryRecord(row)));
+      const rows = await getMyLibrary();
+      const normalized = (rows || []).map((row) => normalizeLibraryRecord(row));
+      setNotes(normalized);
+      setOfflineMode(false);
+      const syncedAt = Date.now();
+      setLastSyncedAt(syncedAt);
+      localStorage.setItem(
+        LIBRARY_CACHE_KEY,
+        JSON.stringify({
+          synced_at: syncedAt,
+          rows,
+        }),
+      );
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Failed to load library");
+      const cachedRaw = localStorage.getItem(LIBRARY_CACHE_KEY);
+      if (cachedRaw) {
+        try {
+          const cached = JSON.parse(cachedRaw);
+          const cachedRows = Array.isArray(cached?.rows) ? cached.rows : [];
+          setNotes(cachedRows.map((row) => normalizeLibraryRecord(row)));
+          setLastSyncedAt(cached?.synced_at || null);
+          setOfflineMode(true);
+          toast.error("Network unavailable. Loaded offline library cache.");
+        } catch {
+          toast.error(err.response?.data?.detail || "Failed to load library");
+        }
+      } else {
+        toast.error(err.response?.data?.detail || "Failed to load library");
+      }
     } finally {
       setLoading(false);
     }
@@ -221,6 +251,12 @@ export default function MyLibrary() {
             </button>
           </div>
         </div>
+
+        {offlineMode && (
+          <div className="mb-6 border border-amber-300 bg-amber-50 px-4 py-3 text-xs font-bold uppercase tracking-wider text-amber-700">
+            Offline mode active{lastSyncedAt ? ` • Last sync: ${new Date(lastSyncedAt).toLocaleString()}` : ""}
+          </div>
+        )}
 
         {/* Controls */}
         <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-8">

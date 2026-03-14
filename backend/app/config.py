@@ -28,6 +28,11 @@ class Settings(BaseModel):
     SLOW_QUERY_THRESHOLD_MS: int = int(os.getenv("SLOW_QUERY_THRESHOLD_MS", "250"))
     AI_JOB_MAX_ATTEMPTS: int = int(os.getenv("AI_JOB_MAX_ATTEMPTS", "3"))
     ENABLE_SECURITY_HEADERS: bool = os.getenv("ENABLE_SECURITY_HEADERS", "true").lower() == "true"
+    INITIAL_WALLET_POINTS: int = int(os.getenv("INITIAL_WALLET_POINTS", "200"))
+    NOTE_PUBLISH_POINTS: int = int(os.getenv("NOTE_PUBLISH_POINTS", "15"))
+    TOP_CONTRIBUTOR_BONUS_POINTS: int = int(os.getenv("TOP_CONTRIBUTOR_BONUS_POINTS", "100"))
+    POINTS_SELLER_REWARD_PERCENT: int = int(os.getenv("POINTS_SELLER_REWARD_PERCENT", "80"))
+    PAYMENT_PENDING_TTL_SECONDS: int = int(os.getenv("PAYMENT_PENDING_TTL_SECONDS", str(30 * 60)))
 
 
 def validate_settings(cfg: Settings):

@@ -12,7 +12,7 @@ const Trending = memo(function Trending() {
     apiCachedFetcher(ENDPOINTS.notes.trending),
     {
       staleTimeMs: 30000,
-      onError: () => toast.error("Failed to load trending notes"),
+      onError: () => toast.error("Failed to load trending notes", { id: "trending-error" }),
     }
   );
 

@@ -1,10 +1,18 @@
 import time
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 
-from app.database import requests_collection, users_collection, notes_collection, reports_collection, disputes_collection, purchases_collection
+from app.database import (
+    requests_collection,
+    request_pledges_collection,
+    users_collection,
+    notes_collection,
+    reports_collection,
+    disputes_collection,
+    purchases_collection,
+)
 from app.utils.dependencies import get_current_user
 from app.services.risk_service import compute_user_risk_score
 
@@ -18,6 +26,21 @@ class RequestCreate(BaseModel):
     subject: str
     unit: str
     description: Optional[str] = None
+
+
+class PledgeCreate(BaseModel):
+    amount: int = Field(ge=1, le=50000)
+
+
+def _refresh_bounty_stats(request_oid: ObjectId):
+    rows = list(request_pledges_collection.find({"request_id": request_oid}, {"amount": 1}))
+    total = sum(int(r.get("amount", 0)) for r in rows)
+    count = len(rows)
+    requests_collection.update_one(
+        {"_id": request_oid},
+        {"$set": {"bounty_total": total, "pledge_count": count}},
+    )
+    return total, count
 
 
 @router.post("/")
@@ -49,6 +72,8 @@ def create_request(data: RequestCreate, current_user=Depends(get_current_user)):
         "created_by": ObjectId(current_user["id"]),
         "votes": [],
         "vote_count": 0,
+        "bounty_total": 0,
+        "pledge_count": 0,
         "created_at": int(time.time())
     }
 
@@ -58,8 +83,8 @@ def create_request(data: RequestCreate, current_user=Depends(get_current_user)):
 
 
 @router.get("/")
-def list_requests():
-    reqs = requests_collection.find({"status": "open"}).sort("_id", -1)
+def list_requests(current_user=Depends(get_current_user)):
+    reqs = requests_collection.find({"status": "open"}, {"votes": 0}).sort("_id", -1)
 
     out = []
     for r in reqs:
@@ -73,7 +98,9 @@ def list_requests():
             "description": r.get("description"),
             "status": r.get("status"),
             "created_by": str(r.get("created_by")) if r.get("created_by") else None,
-            "vote_count": int(r.get("vote_count", len(r.get("votes", [])))),
+            "vote_count": int(r.get("vote_count", 0)),
+            "bounty_total": int(r.get("bounty_total", 0)),
+            "pledge_count": int(r.get("pledge_count", 0)),
         })
     return out
 
@@ -122,50 +149,151 @@ def vote_request(request_id: str, current_user=Depends(get_current_user)):
     return {"message": "Voted ✅", "voted": True}
 
 
-@router.get("/insights/demand-heatmap")
-def request_demand_heatmap():
-    rows = list(requests_collection.find({"status": "open"}))
-    by_subject = {}
-    by_unit = {}
-    by_dept = {}
-    for r in rows:
-        s = r.get("subject", "Unknown")
-        u = str(r.get("unit", "Unknown"))
-        d = r.get("dept", "Unknown")
-        by_subject[s] = by_subject.get(s, 0) + 1
-        by_unit[u] = by_unit.get(u, 0) + 1
-        by_dept[d] = by_dept.get(d, 0) + 1
+@router.post("/{request_id}/pledge")
+def pledge_request(request_id: str, data: PledgeCreate, current_user=Depends(get_current_user)):
+    if not ObjectId.is_valid(request_id):
+        raise HTTPException(status_code=400, detail="Invalid request_id")
+    request_oid = ObjectId(request_id)
+    req = requests_collection.find_one({"_id": request_oid, "status": "open"})
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+    amount = int(data.amount)
+    if amount < 1 or amount > 50000:
+        raise HTTPException(status_code=400, detail="Pledge amount must be between INR 1 and INR 50000")
 
-    top_subjects = sorted(
-        [{"subject": k, "count": v} for k, v in by_subject.items()],
-        key=lambda x: x["count"],
-        reverse=True,
-    )[:12]
-    top_units = sorted(
-        [{"unit": k, "count": v} for k, v in by_unit.items()],
-        key=lambda x: x["count"],
-        reverse=True,
-    )[:12]
-    top_requests = sorted(
-        [
+    request_pledges_collection.update_one(
+        {"request_id": request_oid, "user_id": ObjectId(current_user["id"])},
+        {
+            "$set": {
+                "amount": amount,
+                "updated_at": int(time.time()),
+            },
+            "$setOnInsert": {
+                "created_at": int(time.time()),
+            },
+        },
+        upsert=True,
+    )
+    total, count = _refresh_bounty_stats(request_oid)
+    return {
+        "message": "Pledge saved ✅",
+        "request_id": request_id,
+        "bounty_total": total,
+        "pledge_count": count,
+    }
+
+
+@router.delete("/{request_id}/pledge")
+def unpledge_request(request_id: str, current_user=Depends(get_current_user)):
+    if not ObjectId.is_valid(request_id):
+        raise HTTPException(status_code=400, detail="Invalid request_id")
+    request_oid = ObjectId(request_id)
+    request_pledges_collection.delete_one(
+        {"request_id": request_oid, "user_id": ObjectId(current_user["id"])}
+    )
+    total, count = _refresh_bounty_stats(request_oid)
+    return {
+        "message": "Pledge removed",
+        "request_id": request_id,
+        "bounty_total": total,
+        "pledge_count": count,
+    }
+
+
+@router.get("/{request_id}/bounty")
+def request_bounty(request_id: str):
+    if not ObjectId.is_valid(request_id):
+        raise HTTPException(status_code=400, detail="Invalid request_id")
+    request_oid = ObjectId(request_id)
+    req = requests_collection.find_one({"_id": request_oid})
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    rows = list(
+        request_pledges_collection.find({"request_id": request_oid}).sort("amount", -1).limit(20)
+    )
+    user_ids = [r.get("user_id") for r in rows if r.get("user_id")]
+    user_map = {}
+    if user_ids:
+        for u in users_collection.find({"_id": {"$in": user_ids}}, {"name": 1}):
+            user_map[u["_id"]] = u.get("name", "User")
+
+    total = int(req.get("bounty_total", 0))
+    if total <= 0:
+        total = sum(int(r.get("amount", 0)) for r in rows)
+    return {
+        "request_id": request_id,
+        "bounty_total": total,
+        "pledge_count": int(req.get("pledge_count", len(rows))),
+        "top_pledges": [
+            {
+                "user_id": str(r.get("user_id")) if r.get("user_id") else None,
+                "user_name": user_map.get(r.get("user_id"), "User"),
+                "amount": int(r.get("amount", 0)),
+            }
+            for r in rows
+        ],
+    }
+
+
+@router.get("/insights/demand-heatmap")
+def request_demand_heatmap(current_user=Depends(get_current_user)):
+    results = list(
+        requests_collection.aggregate(
+            [
+                {"$match": {"status": "open"}},
+                {
+                    "$facet": {
+                        "total": [{"$count": "n"}],
+                        "by_subject": [
+                            {"$group": {"_id": {"$ifNull": ["$subject", "Unknown"]}, "count": {"$sum": 1}}},
+                            {"$sort": {"count": -1}},
+                            {"$limit": 12},
+                        ],
+                        "by_unit": [
+                            {"$group": {"_id": {"$toString": {"$ifNull": ["$unit", "Unknown"]}}, "count": {"$sum": 1}}},
+                            {"$sort": {"count": -1}},
+                            {"$limit": 12},
+                        ],
+                        "by_dept": [
+                            {"$group": {"_id": {"$ifNull": ["$dept", "Unknown"]}, "count": {"$sum": 1}}},
+                            {"$sort": {"count": -1}},
+                        ],
+                        "top_requests": [
+                            {"$sort": {"vote_count": -1}},
+                            {"$limit": 12},
+                            {
+                                "$project": {
+                                    "title": 1,
+                                    "subject": 1,
+                                    "unit": 1,
+                                    "dept": 1,
+                                    "vote_count": 1,
+                                    "bounty_total": 1,
+                                }
+                            },
+                        ],
+                    }
+                },
+            ]
+        )
+    )
+    facet = results[0] if results else {}
+    return {
+        "total_open_requests": (facet.get("total") or [{}])[0].get("n", 0),
+        "top_subjects": [{"subject": r["_id"], "count": r["count"]} for r in facet.get("by_subject", [])],
+        "top_units": [{"unit": r["_id"], "count": r["count"]} for r in facet.get("by_unit", [])],
+        "by_dept": [{"dept": r["_id"], "count": r["count"]} for r in facet.get("by_dept", [])],
+        "top_requests": [
             {
                 "id": str(r["_id"]),
                 "title": r.get("title", ""),
                 "subject": r.get("subject", ""),
                 "unit": r.get("unit", ""),
                 "dept": r.get("dept", ""),
-                "vote_count": int(r.get("vote_count", len(r.get("votes", [])))),
+                "vote_count": int(r.get("vote_count", 0)),
+                "bounty_total": int(r.get("bounty_total", 0)),
             }
-            for r in rows
+            for r in facet.get("top_requests", [])
         ],
-        key=lambda x: x["vote_count"],
-        reverse=True,
-    )[:12]
-
-    return {
-        "total_open_requests": len(rows),
-        "top_subjects": top_subjects,
-        "top_units": top_units,
-        "by_dept": [{"dept": k, "count": v} for k, v in sorted(by_dept.items(), key=lambda x: x[1], reverse=True)],
-        "top_requests": top_requests,
     }

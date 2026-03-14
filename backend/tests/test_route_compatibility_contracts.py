@@ -17,6 +17,14 @@ class InMemoryCursor:
         self.docs.sort(key=lambda d: d.get(key), reverse=reverse)
         return self
 
+    def skip(self, n):
+        self.docs = self.docs[n:]
+        return self
+
+    def limit(self, n):
+        self.docs = self.docs[:n]
+        return self
+
     def __iter__(self):
         return iter(self.docs)
 

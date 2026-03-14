@@ -87,7 +87,7 @@ npm run dev:up
 
 This starts MongoDB, backend, and frontend together with local-safe defaults:
 - `JWT_SECRET_KEY=dev-local-secret` (if not already set)
-- `MODERATION_AI_MODE=rules` (no paid AI key required)
+- `MODERATION_AI_MODE=gemini` (uses `GEMINI_API_KEY` from `backend/.env` if set)
 - MongoDB data is always stored in one fixed folder:
   - `/Users/aldricanto/Documents/Notes market/.run/mongodb`
 

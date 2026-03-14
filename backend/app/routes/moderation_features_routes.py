@@ -1,6 +1,5 @@
 import time
 from collections import defaultdict
-from difflib import SequenceMatcher
 from typing import Literal, Optional
 
 from bson import ObjectId
@@ -22,6 +21,7 @@ from app.utils.notify import notify
 from app.utils.audit import log_audit_event
 from app.utils.text_extract import extract_text_from_pdf
 from app.utils.seller_trust import calculate_seller_trust_level
+from app.services.duplicate_service import find_near_duplicates
 
 
 router = APIRouter(prefix="/moderation/features", tags=["Moderation Features"])
@@ -266,12 +266,15 @@ def create_appeal(note_id: str, data: AppealCreateRequest, current_user=Depends(
 @router.get("/appeals")
 def list_appeals(
     status: Optional[str] = Query(default=None),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=200),
     current_user=Depends(require_role(["admin", "moderator"])),
 ):
     query = {}
     if status:
         query["status"] = status
-    appeals = list(moderation_appeals_collection.find(query).sort("_id", -1))
+    total = moderation_appeals_collection.count_documents(query)
+    appeals = list(moderation_appeals_collection.find(query).sort("_id", -1).skip(skip).limit(limit))
     out = []
     for a in appeals:
         note = notes_collection.find_one({"_id": a["note_id"]})
@@ -286,7 +289,7 @@ def list_appeals(
                 "created_at": a.get("created_at"),
             }
         )
-    return out
+    return {"total": total, "skip": skip, "limit": limit, "items": out}
 
 
 @router.patch("/appeals/{appeal_id}/resolve")
@@ -343,26 +346,17 @@ def confidence_trend(days: int = Query(default=14, ge=1, le=180), current_user=D
 def find_duplicates(note_id: str, current_user=Depends(require_role(["admin", "moderator"]))):
     if not ObjectId.is_valid(note_id):
         raise HTTPException(status_code=400, detail="Invalid note id")
-    target = notes_collection.find_one({"_id": ObjectId(note_id)})
-    if not target:
+    if not notes_collection.find_one({"_id": ObjectId(note_id)}):
         raise HTTPException(status_code=404, detail="Note not found")
-    target_text = (target.get("title", "") + " " + (target.get("description") or "")).lower()
-    report = ai_reports_collection.find_one({"note_id": ObjectId(note_id)}) or {}
-    if report.get("summary"):
-        target_text += " " + report.get("summary", "").lower()
-
-    sims = []
-    others = notes_collection.find({"_id": {"$ne": ObjectId(note_id)}, "status": {"$in": ["pending", "approved"]}}).limit(300)
-    for other in others:
-        other_text = (other.get("title", "") + " " + (other.get("description") or "")).lower()
-        other_report = ai_reports_collection.find_one({"note_id": other["_id"]}) or {}
-        if other_report.get("summary"):
-            other_text += " " + other_report.get("summary", "").lower()
-        score = SequenceMatcher(a=target_text[:2000], b=other_text[:2000]).ratio()
-        if score >= 0.72:
-            sims.append({"note_id": str(other["_id"]), "title": other.get("title"), "similarity": round(score, 3)})
-    sims.sort(key=lambda x: x["similarity"], reverse=True)
-    return {"note_id": note_id, "duplicates": sims[:20]}
+    sims = find_near_duplicates(
+        note_id,
+        notes_collection,
+        ai_reports_collection,
+        threshold=0.62,
+        scan_limit=500,
+        top_k=30,
+    )
+    return {"note_id": note_id, "duplicates": sims}
 
 
 @router.post("/suggest-tags/{note_id}")
@@ -422,7 +416,7 @@ def moderation_analytics(days: int = Query(default=30, ge=1, le=365), current_us
 
 
 @router.post("/revalidate/run")
-def revalidate_run(data: RevalidateRunRequest, current_user=Depends(require_role(["admin", "moderator"]))):
+def revalidate_run(data: RevalidateRunRequest, current_user=Depends(require_role(["admin"]))):
     rules = _get_rules()
     cutoff = int(time.time()) - int(rules.get("revalidate_after_days", 14)) * 24 * 3600
     targets = list(

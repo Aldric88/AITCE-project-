@@ -2,27 +2,54 @@ import time
 from jose import jwt, JWTError
 from fastapi import APIRouter, HTTPException, Depends, Response, Request
 from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel
 
 from app.schemas.user_schema import UserCreate, UserResponse, TokenResponse
 from app.services.user_service import get_user_by_email, create_user, authenticate_user
 from app.services.cluster_resolver import resolve_user_cluster_metadata
+from app.utils.domain_validator import validate_college_domain
 from app.utils.security import create_access_token, create_refresh_token
 from app.utils.dependencies import get_current_user, require_role
 from app.database import users_collection, follows_collection, refresh_tokens_collection, revoked_tokens_collection
-from app.utils.rate_limiter import login_limiter
+from app.utils.rate_limiter import login_limiter, signup_limiter
 from app.config import settings
 from bson import ObjectId
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
+class DomainCheckRequest(BaseModel):
+    email: str
+
+
+@router.post("/check-domain")
+def check_domain(data: DomainCheckRequest):
+    """Pre-signup domain check — called from the signup form to give instant feedback."""
+    result = validate_college_domain(data.email)
+    return {
+        "allowed": result["allowed"],
+        "reason": result["reason"],
+        "institution_name": result.get("institution_name", ""),
+        "source": result.get("source", ""),
+    }
+
+
 @router.post("/signup", response_model=UserResponse)
-def signup(user: UserCreate):
+def signup(user: UserCreate, _=Depends(signup_limiter)):
     existing = get_user_by_email(user.email)
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
 
+    # ── College domain gate ──────────────────────────────────────────────────
+    domain_check = validate_college_domain(user.email)
+    if not domain_check["allowed"]:
+        raise HTTPException(status_code=400, detail=domain_check["reason"])
+
     user_data = user.model_dump()
+    # Carry institution name from AI check into user record
+    if domain_check.get("institution_name"):
+        user_data["institution_name"] = domain_check["institution_name"]
+    user_data["domain_check_source"] = domain_check.get("source", "unknown")
     cluster_meta = resolve_user_cluster_metadata(user.email)
     user_data["cluster_id"] = cluster_meta["cluster_id"]
     user_data["verified_by_domain"] = cluster_meta["verified_by_domain"]
@@ -111,7 +138,12 @@ def logout(request: Request, response: Response):
             if jti:
                 revoked_tokens_collection.update_one(
                     {"jti": jti},
-                    {"$setOnInsert": {"created_at": int(time.time())}},
+                    {
+                        "$setOnInsert": {
+                            "created_at": int(time.time()),
+                            "expires_at": int(payload.get("exp", 0)),
+                        }
+                    },
                     upsert=True,
                 )
                 refresh_tokens_collection.update_one({"jti": jti}, {"$set": {"revoked": True}})
@@ -162,7 +194,12 @@ def refresh(request: Request, response: Response):
     refresh_tokens_collection.update_one({"jti": payload.get("jti")}, {"$set": {"revoked": True}})
     revoked_tokens_collection.update_one(
         {"jti": payload.get("jti")},
-        {"$setOnInsert": {"created_at": int(time.time())}},
+        {
+            "$setOnInsert": {
+                "created_at": int(time.time()),
+                "expires_at": int(payload.get("exp", 0)),
+            }
+        },
         upsert=True,
     )
 
@@ -216,6 +253,7 @@ def me(current_user=Depends(get_current_user)):
         "role": current_user.get("role", "student"),
         "is_email_verified": current_user.get("is_email_verified", False),
         "profile_pic_url": current_user.get("profile_pic_url", None),
+        "wallet_points": int(current_user.get("wallet_points", 0)),
         "followers_count": followers,
         "following_count": following
     }

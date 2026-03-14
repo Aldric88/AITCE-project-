@@ -1,3 +1,8 @@
+# LEGACY FILE — DO NOT IMPORT IN main.py
+# This file is superseded by ai_routes.py which uses the hybrid moderation pipeline.
+# Importing this would cause route conflicts on /ai/analyze/{note_id} and /ai/report/{note_id}.
+# Kept for historical reference only.
+
 import os
 import re
 import json
@@ -10,7 +15,7 @@ import google.generativeai as genai
 from app.database import notes_collection, ai_reports_collection, uploads_collection
 from app.utils.dependencies import get_current_user
 
-router = APIRouter(prefix="/ai", tags=["AI Moderation (Gemini)"])
+router = APIRouter(prefix="/ai", tags=["AI Moderation (Gemini) LEGACY"])
 
 
 # ✅ helper: extract text from first few pages

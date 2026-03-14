@@ -167,8 +167,42 @@ def analytics_funnel(days: int = Query(default=30, ge=1, le=365), current_user=D
     approved_notes_count = sum(int(r.get("notes", 0)) for r in note_stats)
     total_views = sum(int(r.get("views", 0)) for r in note_stats)
     previews = view_sessions_collection.count_documents({"created_at": {"$gte": since}})
-    purchases = purchases_collection.count_documents({"status": "success", "created_at": {"$gte": since}})
     reviews = reviews_collection.count_documents({"created_at": {"$gte": since}})
+
+    # Single $facet: purchase count + sales-by-creator in one round-trip
+    purchase_facet = list(
+        purchases_collection.aggregate(
+            [
+                {"$match": {"status": "success", "created_at": {"$gte": since}}},
+                {
+                    "$facet": {
+                        "count": [{"$count": "n"}],
+                        "sales_by_creator": [
+                            {
+                                "$lookup": {
+                                    "from": "notes",
+                                    "localField": "note_id",
+                                    "foreignField": "_id",
+                                    "as": "note",
+                                }
+                            },
+                            {"$unwind": "$note"},
+                            {"$match": {"note.status": "approved"}},
+                            {
+                                "$group": {
+                                    "_id": "$note.uploader_id",
+                                    "sales": {"$sum": {"$toInt": {"$ifNull": ["$amount", 0]}}},
+                                }
+                            },
+                        ],
+                    }
+                },
+            ]
+        )
+    )
+    purchase_facet_result = purchase_facet[0] if purchase_facet else {}
+    purchases = (purchase_facet_result.get("count") or [{}])[0].get("n", 0)
+    sales_stats = purchase_facet_result.get("sales_by_creator", [])
 
     top_creators = []
     by_creator = {}
@@ -184,27 +218,6 @@ def analytics_funnel(days: int = Query(default=30, ge=1, le=365), current_user=D
             "sales": 0,
         }
 
-    sales_stats = purchases_collection.aggregate(
-        [
-            {"$match": {"status": "success", "created_at": {"$gte": since}}},
-            {
-                "$lookup": {
-                    "from": "notes",
-                    "localField": "note_id",
-                    "foreignField": "_id",
-                    "as": "note",
-                }
-            },
-            {"$unwind": "$note"},
-            {"$match": {"note.status": "approved"}},
-            {
-                "$group": {
-                    "_id": "$note.uploader_id",
-                    "sales": {"$sum": {"$toInt": {"$ifNull": ["$amount", 0]}}},
-                }
-            },
-        ]
-    )
     for row in sales_stats:
         creator_id = row.get("_id")
         if not creator_id:
@@ -227,12 +240,28 @@ def analytics_funnel(days: int = Query(default=30, ge=1, le=365), current_user=D
 
     top_creators.sort(key=lambda x: x["sales"], reverse=True)
 
-    cohort = {}
-    for u in users_collection.find({"is_active": True}, {"dept": 1}):
-        dept = u.get("dept", "Unknown")
-        cohort[dept] = cohort.get(dept, 0) + 1
-
-    churn = users_collection.count_documents({"is_active": False})
+    # Single $facet: cohort-by-dept + churn count in one round-trip
+    user_facet = list(
+        users_collection.aggregate(
+            [
+                {
+                    "$facet": {
+                        "cohort": [
+                            {"$match": {"is_active": True}},
+                            {"$group": {"_id": "$dept", "count": {"$sum": 1}}},
+                        ],
+                        "churn": [
+                            {"$match": {"is_active": False}},
+                            {"$count": "n"},
+                        ],
+                    }
+                }
+            ]
+        )
+    )
+    user_facet_result = user_facet[0] if user_facet else {}
+    cohort = {(r.get("_id") or "Unknown"): r["count"] for r in user_facet_result.get("cohort", [])}
+    churn = (user_facet_result.get("churn") or [{}])[0].get("n", 0)
     return {
         "window_days": days,
         "funnel": {

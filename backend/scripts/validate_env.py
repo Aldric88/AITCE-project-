@@ -31,6 +31,8 @@ def main():
         "EMAIL_PASS",
         "EMAIL_FROM",
         "RAZORPAY_WEBHOOK_SECRET",
+        "GEMINI_API_KEY",
+        "GEMINI_MODEL",
         "OLLAMA_URL",
         "OLLAMA_MODEL",
     }

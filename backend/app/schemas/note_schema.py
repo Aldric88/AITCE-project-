@@ -5,6 +5,11 @@ NoteStatus = Literal["pending", "approved", "rejected"]
 NoteType = Literal["pdf", "doc", "ppt", "image", "link", "text"]
 
 
+class NoteCollaborator(BaseModel):
+    email: str
+    split_percent: float = Field(default=0.0, ge=0.0, le=100.0)
+
+
 class NoteCreate(BaseModel):
     title: str = Field(min_length=3)
     description: Optional[str] = None
@@ -30,6 +35,9 @@ class NoteCreate(BaseModel):
     # paid notes
     is_paid: bool = False
     price: int = 0
+
+    # collaboration
+    collaborators: List[NoteCollaborator] = []
 
 
 class NoteResponse(BaseModel):
@@ -58,6 +66,7 @@ class NoteResponse(BaseModel):
     likes: int
     avg_rating: float
     review_count: int
+    collaborator_count: int = 0
 
 
 class NoteUpdate(BaseModel):

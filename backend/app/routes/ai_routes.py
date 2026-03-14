@@ -22,6 +22,17 @@ router = APIRouter(prefix="/ai", tags=["AI Moderation (Gemini)"])
 logger = logging.getLogger(__name__)
 
 
+def _model_for_provider(provider: str) -> str:
+    provider = (provider or "rules").lower()
+    if provider == "gemini":
+        return os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    if provider == "ollama":
+        return os.getenv("OLLAMA_MODEL", "llama3.1:8b")
+    if provider == "cached":
+        return "cached"
+    return "rules"
+
+
 # ✅ helper: extract text from first few pages
 def extract_text_from_pdf(path: str, max_pages: int = 3) -> str:
     doc = fitz.open(path)
@@ -168,7 +179,7 @@ def analyze_note(note_id: str, force: bool = False, current_user=Depends(get_cur
                     "analyzed_by_role": current_user["role"],
                     "analyzed_at": int(time.time()),
                     "analysis_timestamp": datetime.now().isoformat(),
-                    "ai_model": os.getenv("OLLAMA_MODEL", "rules"),
+                    "ai_model": _model_for_provider(analysis_runtime.get("provider", "rules")),
                     "api_provider": analysis_runtime.get("provider", "rules"),
                     "fallback_used": analysis_runtime.get("fallback_used", False),
                     "cached_reuse": analysis_runtime.get("cached_reuse", False),
@@ -210,7 +221,7 @@ def analyze_note(note_id: str, force: bool = False, current_user=Depends(get_cur
         "topics": result.get("topics", []),
         "revision_bullets": result.get("revision_bullets", []),
         "important_questions": result.get("important_questions", []),
-        "spam_score": float(result.get("spam_score", 0)) / 100.0 if float(result.get("spam_score", 0)) > 1 else float(result.get("spam_score", 0)),
+        "spam_score": float(result.get("spam_score", 0)) / 100.0,
         "relevance_score": float(result.get("relevance_score", 0.0)),
         "quality_score": float(result.get("quality_score", 0.0)),
         "subject_mismatch": not bool(result.get("subject_match", False)),
@@ -523,11 +534,13 @@ def analyze_note_legacy(note_id: str, force: bool = False, current_user=Depends(
 def ai_worker_health(current_user=Depends(get_current_user)):
     if current_user["role"] not in ["admin", "moderator"]:
         raise HTTPException(status_code=403, detail="Not allowed")
+    mode = os.getenv("MODERATION_AI_MODE", "rules").lower()
+    uses_paid = mode in {"gemini", "auto"} and bool(os.getenv("GEMINI_API_KEY", "").strip())
     return {
         "status": "ok",
-        "moderation_mode": os.getenv("MODERATION_AI_MODE", "rules"),
+        "moderation_mode": mode,
         "queue": get_ai_queue_stats(),
-        "uses_paid_api": False,
-        "fallback_provider": "rules",
+        "uses_paid_api": uses_paid,
+        "fallback_provider": "ollama/rules" if mode == "auto" else "rules",
         "max_attempts": settings.AI_JOB_MAX_ATTEMPTS,
     }

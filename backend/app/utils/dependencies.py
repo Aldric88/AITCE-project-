@@ -57,8 +57,17 @@ def require_role(allowed_roles: list):
             )
         return current_user
 
-
     return role_checker
+
+
+def require_email_verified(current_user=Depends(get_current_user)):
+    """Gate: user must have verified their college email."""
+    if not current_user.get("is_email_verified"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Please verify your college email before performing this action.",
+        )
+    return current_user
 
 def get_optional_current_user(
     request: Request,

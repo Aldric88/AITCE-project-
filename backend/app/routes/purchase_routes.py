@@ -1,6 +1,7 @@
 import time
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, Body
+from pydantic import BaseModel
 from app.database import purchases_collection, notes_collection
 from app.utils.dependencies import get_current_user
 from app.utils.idempotency import (
@@ -10,10 +11,17 @@ from app.utils.idempotency import (
 )
 from app.services.ledger_service import add_ledger_entry
 from app.services.purchase_service import purchase_query, list_user_purchase_rows
+from app.services.pass_service import has_active_creator_pass
+from app.services.points_service import spend_points, award_points, get_wallet_balance
+from app.config import settings
 
 router = APIRouter(prefix="/purchase", tags=["Purchase"])
 router_plural = APIRouter(prefix="/purchases", tags=["Purchase"])
 router_library = APIRouter(prefix="/library", tags=["Purchase"])
+
+
+class PurchaseRequest(BaseModel):
+    payment_method: str | None = "free"
 
 
 def _purchase_query(user_id: str, note_id: str):
@@ -23,6 +31,7 @@ def _purchase_query(user_id: str, note_id: str):
 @router.post("/{note_id}")
 def buy_note(
     note_id: str,
+    data: PurchaseRequest | None = Body(default=None),
     x_idempotency_key: str = Header(default=""),
     current_user=Depends(get_current_user),
 ):
@@ -30,7 +39,8 @@ def buy_note(
         raise HTTPException(status_code=400, detail="X-Idempotency-Key header is required")
 
     route = f"/purchase/{note_id}"
-    fingerprint = make_request_fingerprint({"note_id": note_id})
+    payment_method = ((data.payment_method if data else "free") or "free").strip().lower()
+    fingerprint = make_request_fingerprint({"note_id": note_id, "payment_method": payment_method})
     saved = get_saved_idempotent_response(route, current_user["id"], x_idempotency_key, fingerprint)
     if saved:
         return saved
@@ -52,35 +62,29 @@ def buy_note(
         save_idempotent_response(route, current_user["id"], x_idempotency_key, fingerprint, response)
         return response
 
-    # ✅ Free note unlock
-    if note.get("is_paid") is False:
-        result = purchases_collection.insert_one({
-            "buyer_id": ObjectId(current_user["id"]),
-            "user_id": ObjectId(current_user["id"]),  # backward compatibility
-            "note_id": ObjectId(note_id),
-            "amount": 0,
-            "status": "success",
-            "purchase_type": "free",
-            "created_at": int(time.time())
-        })
-        add_ledger_entry(
-            purchase_id=result.inserted_id,
-            buyer_id=ObjectId(current_user["id"]),
-            seller_id=note["uploader_id"],
-            note_id=ObjectId(note_id),
-            amount=0,
-            currency="INR",
-            entry_type="free_unlock",
-            source="purchase.free",
-        )
-        response = {"message": "Free note unlocked ✅", "paid": False}
-        save_idempotent_response(route, current_user["id"], x_idempotency_key, fingerprint, response)
-        return response
-
-    raise HTTPException(
-        status_code=400,
-        detail="Paid notes require payment checkout. Use /payments/create-order first.",
+    # ✅ All notes unlocked for free (payments disabled)
+    result = purchases_collection.insert_one({
+        "buyer_id": ObjectId(current_user["id"]),
+        "user_id": ObjectId(current_user["id"]),
+        "note_id": ObjectId(note_id),
+        "amount": 0,
+        "status": "success",
+        "purchase_type": "free",
+        "created_at": int(time.time())
+    })
+    add_ledger_entry(
+        purchase_id=result.inserted_id,
+        buyer_id=ObjectId(current_user["id"]),
+        seller_id=note["uploader_id"],
+        note_id=ObjectId(note_id),
+        amount=0,
+        currency="INR",
+        entry_type="free_unlock",
+        source="purchase.free",
     )
+    response = {"message": "Note unlocked ✅", "paid": False}
+    save_idempotent_response(route, current_user["id"], x_idempotency_key, fingerprint, response)
+    return response
 
 
 @router.get("/my")
@@ -98,17 +102,27 @@ def has_access(note_id: str, current_user=Depends(get_current_user)):
         raise HTTPException(status_code=400, detail="Invalid note id")
 
     existing = purchases_collection.find_one(_purchase_query(current_user["id"], note_id))
-
-    return {"has_access": True if existing else False}
+    if existing:
+        return {"has_access": True}
+    note = notes_collection.find_one({"_id": ObjectId(note_id)}, {"uploader_id": 1})
+    if not note:
+        return {"has_access": False}
+    return {"has_access": has_active_creator_pass(current_user["id"], note.get("uploader_id"))}
 
 
 @router_plural.post("/{note_id}")
 def buy_note_plural_alias(
     note_id: str,
+    data: PurchaseRequest | None = Body(default=None),
     x_idempotency_key: str = Header(default=""),
     current_user=Depends(get_current_user),
 ):
-    return buy_note(note_id=note_id, x_idempotency_key=x_idempotency_key, current_user=current_user)
+    return buy_note(
+        note_id=note_id,
+        data=data,
+        x_idempotency_key=x_idempotency_key,
+        current_user=current_user,
+    )
 
 
 @router_plural.get("/my")

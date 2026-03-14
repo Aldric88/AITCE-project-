@@ -62,8 +62,13 @@ def _invalidate_followers_feed_cache(note: dict):
 
 
 @router.get("/pending")
-def pending_notes(current_user=Depends(require_role(["moderator", "admin"]))):
-    notes = notes_collection.find({"status": "pending"}).sort("_id", -1)
+def pending_notes(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=200),
+    current_user=Depends(require_role(["moderator", "admin"])),
+):
+    total = notes_collection.count_documents({"status": "pending"})
+    notes = notes_collection.find({"status": "pending"}).sort("_id", -1).skip(skip).limit(limit)
     result = []
     for n in notes:
         result.append(
@@ -81,7 +86,7 @@ def pending_notes(current_user=Depends(require_role(["moderator", "admin"]))):
                 "ai": n.get("ai"),
             }
         )
-    return result
+    return {"total": total, "skip": skip, "limit": limit, "items": result}
 
 
 @router.patch("/{note_id}/moderate")

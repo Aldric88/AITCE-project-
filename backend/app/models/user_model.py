@@ -13,4 +13,5 @@ def user_helper(user) -> dict:
         "profile_pic_url": user.get("profile_pic_url"),
         "cluster_id": str(user.get("cluster_id")) if user.get("cluster_id") else None,
         "verified_by_domain": user.get("verified_by_domain", False),
+        "wallet_points": int(user.get("wallet_points", 0)),
     }

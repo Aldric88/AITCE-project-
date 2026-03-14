@@ -7,14 +7,17 @@ import Spinner from "../components/Spinner";
 export default function RejectedNotes() {
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
-
   const [selected, setSelected] = useState(null);
-  const [open, setOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [appealText, setAppealText] = useState("");
+  const [submittingAppeal, setSubmittingAppeal] = useState(false);
+  const [appealedNotes, setAppealedNotes] = useState(new Set());
 
   const fetchRejected = async () => {
     try {
       setLoading(true);
-      const res = await api.get("/notes/rejected");
+      // student-accessible: own rejected notes only
+      const res = await api.get("/notes/my/rejected");
       setNotes(res.data);
     } catch (err) {
       toast.error(err.response?.data?.detail || "Failed to load rejected notes");
@@ -23,18 +26,39 @@ export default function RejectedNotes() {
     }
   };
 
-  const overrideApprove = async (noteId) => {
-    try {
-      toast.loading("Overriding approval...", { id: `ov-${noteId}` });
-      await api.patch(`/notes/${noteId}/override-approve`);
-      toast.success("Approved ✅", { id: `ov-${noteId}` });
-      setOpen(false);
-      fetchRejected();
-    } catch (err) {
-      toast.error(err.response?.data?.detail || "Override approve failed", {
-        id: `ov-${noteId}`,
-      });
+  const submitAppeal = async () => {
+    if (!selected) return;
+    if (!appealText.trim() || appealText.trim().length < 10) {
+      toast.error("Appeal message must be at least 10 characters");
+      return;
     }
+    try {
+      setSubmittingAppeal(true);
+      await api.post(`/moderation/features/appeals/${selected.id}`, {
+        message: appealText.trim(),
+      });
+      toast.success("Appeal submitted! Moderators will review it.");
+      setAppealedNotes((prev) => new Set([...prev, selected.id]));
+      setAppealText("");
+      setModalOpen(false);
+      setSelected(null);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to submit appeal");
+    } finally {
+      setSubmittingAppeal(false);
+    }
+  };
+
+  const openModal = (note) => {
+    setSelected(note);
+    setAppealText("");
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+    setSelected(null);
+    setAppealText("");
   };
 
   useEffect(() => {
@@ -43,210 +67,166 @@ export default function RejectedNotes() {
 
   return (
     <Layout title="Rejected Notes">
-      <div className="bg-gradient-to-br from-slate-900/50 to-slate-800/30 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-            <span className="text-2xl">❌</span>
-            Rejected Notes
-          </h2>
-          <button
-            onClick={fetchRejected}
-            className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 transition-all duration-200 font-medium shadow-lg shadow-blue-500/25"
-          >
-            🔄 Refresh
+      <div className="mx-auto max-w-5xl space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-black uppercase tracking-tight text-black">Rejected Notes</h2>
+            <p className="mt-1 text-xs font-bold uppercase tracking-wide text-zinc-500">
+              Your notes that were rejected. You can appeal each rejection.
+            </p>
+          </div>
+          <button onClick={fetchRejected} className="btn-secondary text-xs px-4 py-2">
+            Refresh
           </button>
         </div>
 
         {loading ? (
-          <div className="bg-gradient-to-br from-slate-900/50 to-slate-800/30 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-12">
+          <div className="border border-black bg-white p-12">
             <Spinner label="Loading rejected notes..." />
           </div>
         ) : notes.length === 0 ? (
-          <div className="bg-gradient-to-br from-slate-900/50 to-slate-800/30 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-12 text-center">
-            <div className="text-6xl mb-4">✅</div>
-            <h3 className="text-xl font-semibold text-slate-200 mb-2">All Clear!</h3>
-            <p className="text-slate-400">No rejected notes found</p>
+          <div className="border border-dashed border-zinc-300 bg-zinc-50 p-16 text-center">
+            <div className="text-4xl mb-4">✅</div>
+            <h3 className="text-sm font-black uppercase tracking-[0.2em] text-zinc-800 mb-2">All Clear</h3>
+            <p className="text-xs font-medium text-zinc-500">None of your notes have been rejected.</p>
           </div>
         ) : (
           <div className="space-y-4">
-            {notes.map((n) => (
-              <div
-                key={n.id}
-                className="bg-gradient-to-br from-red-500/10 to-rose-500/10 backdrop-blur-sm border border-red-500/20 rounded-xl p-4 flex items-center justify-between hover:border-red-500/30 transition-all duration-200"
-              >
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-slate-100">{n.title}</h3>
-                  <p className="text-slate-400 text-sm mt-1">
-                    {n.dept} • Sem {n.semester} • {n.subject} • Unit {n.unit}
-                  </p>
-                  <p className="text-red-300 text-sm mt-2 flex items-center gap-1">
-                    <span>❌</span> {n.rejected_reason}
-                  </p>
-                  {n.rejected_at && (
-                    <p className="text-slate-500 text-xs mt-1">
-                      Rejected: {new Date(n.rejected_at * 1000).toLocaleDateString()}
-                    </p>
-                  )}
-                </div>
+            {notes.map((n) => {
+              const alreadyAppealed = appealedNotes.has(n.id);
+              return (
+                <div key={n.id} className="border border-red-200 bg-white p-6">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="flex-1">
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <span className="border border-red-200 bg-red-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-red-700">
+                          Rejected
+                        </span>
+                        {n.is_paid && (
+                          <span className="border border-zinc-200 bg-zinc-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-zinc-700">
+                            Paid · ₹{n.price}
+                          </span>
+                        )}
+                      </div>
 
-                <button
-                  onClick={() => {
-                    setSelected(n);
-                    setOpen(true);
-                  }}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 text-white hover:from-indigo-600 hover:to-indigo-700 transition-all duration-200 font-medium shadow-lg shadow-indigo-500/25"
-                >
-                  👁️ View AI
-                </button>
-              </div>
-            ))}
+                      <h3 className="text-xl font-black uppercase tracking-tight text-zinc-900">{n.title}</h3>
+                      <p className="mt-1 text-xs font-bold uppercase tracking-wide text-zinc-500">
+                        {n.dept} · Sem {n.semester} · {n.subject} · Unit {n.unit}
+                      </p>
+
+                      <div className="mt-3 border-l-4 border-red-400 bg-red-50 py-2 pl-4 pr-3">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-red-600 mb-1">
+                          Rejection Reason
+                        </p>
+                        <p className="text-sm text-red-700">{n.rejected_reason || "No reason provided"}</p>
+                      </div>
+
+                      {n.rejected_at && (
+                        <p className="mt-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                          Rejected on{" "}
+                          {new Date(n.rejected_at * 1000).toLocaleDateString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </p>
+                      )}
+
+                      {/* AI scores if available */}
+                      {n.ai && (
+                        <div className="mt-3 grid grid-cols-3 gap-2">
+                          {[
+                            { label: "Quality", value: n.ai.quality_score },
+                            { label: "Relevance", value: n.ai.relevance_score },
+                            { label: "Spam", value: n.ai.spam_score },
+                          ].map(({ label, value }) => (
+                            <div key={label} className="border border-zinc-200 bg-zinc-50 p-2 text-center">
+                              <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400">{label}</p>
+                              <p className="text-sm font-black text-zinc-800">{Math.round((value || 0) * 100)}%</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col gap-2 lg:items-end shrink-0">
+                      {alreadyAppealed ? (
+                        <span className="border border-blue-200 bg-blue-50 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-blue-700">
+                          Appeal Submitted
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => openModal(n)}
+                          className="btn-primary text-xs px-4 py-2"
+                        >
+                          Submit Appeal
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* Modal */}
-      {open && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-                  <span>🧠</span> Rejected Note Details
-                </h3>
-                <button
-                  onClick={() => {
-                    setOpen(false);
-                    setSelected(null);
-                  }}
-                  className="text-slate-400 hover:text-slate-200 transition-colors"
-                >
-                  ✕
-                </button>
+      {/* Appeal Modal */}
+      {modalOpen && selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg border border-black bg-white">
+            <div className="border-b border-black p-4 flex items-center justify-between">
+              <h3 className="text-sm font-black uppercase tracking-wider text-black">Submit Appeal</h3>
+              <button
+                onClick={closeModal}
+                className="text-zinc-500 hover:text-black font-bold text-lg leading-none"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-wider text-zinc-500 mb-1">Note</p>
+                <p className="text-sm font-bold text-zinc-900">{selected.title}</p>
               </div>
 
-              {!selected ? (
-                <p className="text-slate-400">No note selected.</p>
-              ) : (
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-xl font-semibold text-slate-100">{selected.title}</h3>
-                    <p className="text-slate-400 text-sm mt-1">
-                      {selected.dept} • Sem {selected.semester} • {selected.subject} • Unit{" "}
-                      {selected.unit}
-                    </p>
-                    {selected.is_paid && (
-                      <p className="text-yellow-400 text-sm mt-1">💰 Paid: ₹{selected.price}</p>
-                    )}
-                    <div className="mt-3 p-3 bg-gradient-to-br from-red-500/20 to-rose-500/20 border border-red-500/30 rounded-xl">
-                      <p className="text-red-200 font-semibold flex items-center gap-2">
-                        <span>❌</span> Rejection Reason
-                      </p>
-                      <p className="text-red-300 text-sm mt-1">{selected.rejected_reason}</p>
-                    </div>
-                  </div>
+              <div className="bg-red-50 border border-red-200 p-3">
+                <p className="text-[10px] font-black uppercase tracking-wider text-red-600 mb-1">
+                  Rejection Reason
+                </p>
+                <p className="text-sm text-red-700">{selected.rejected_reason || "No reason provided"}</p>
+              </div>
 
-                  {/* AI Report */}
-                  <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl p-4">
-                    <h4 className="font-semibold text-slate-100 mb-4 flex items-center gap-2">
-                      <span>🧠</span> AI Report
-                    </h4>
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-zinc-600 mb-2">
+                  Your Appeal <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  className="w-full border border-zinc-300 p-3 text-sm text-zinc-800 focus:border-black focus:outline-none resize-none"
+                  rows={5}
+                  placeholder="Explain why your note should be reconsidered. Describe the content, accuracy, and why the rejection doesn't apply..."
+                  value={appealText}
+                  onChange={(e) => setAppealText(e.target.value)}
+                  maxLength={2000}
+                />
+                <p className="text-right text-[10px] font-bold uppercase tracking-wider text-zinc-400 mt-1">
+                  {appealText.length}/2000 · min 10 chars
+                </p>
+              </div>
 
-                    {!selected.ai ? (
-                      <p className="text-slate-400">No AI data found.</p>
-                    ) : (
-                      <div className="space-y-4">
-                        <div>
-                          <p className="text-sm font-medium text-slate-300 mb-1">Summary:</p>
-                          <p className="text-sm text-slate-400">{selected.ai.summary}</p>
-                        </div>
-
-                        {selected.ai.topics?.length > 0 && (
-                          <div>
-                            <p className="text-sm font-medium text-slate-300 mb-2">Topics:</p>
-                            <div className="flex flex-wrap gap-2">
-                              {selected.ai.topics.map((t, i) => (
-                                <span
-                                  key={i}
-                                  className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-indigo-300 border border-indigo-500/30"
-                                >
-                                  #{t}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                          <div className="bg-gradient-to-br from-slate-800/50 to-slate-700/30 border border-slate-600/50 rounded-xl p-3">
-                            <p className="text-xs text-slate-400">Spam Score</p>
-                            <p className="text-lg font-bold text-slate-200">
-                              {Math.round(selected.ai.spam_score * 100)}%
-                            </p>
-                          </div>
-
-                          <div className="bg-gradient-to-br from-slate-800/50 to-slate-700/30 border border-slate-600/50 rounded-xl p-3">
-                            <p className="text-xs text-slate-400">Relevance</p>
-                            <p className="text-lg font-bold text-slate-200">
-                              {Math.round(selected.ai.relevance_score * 100)}%
-                            </p>
-                          </div>
-
-                          <div className="bg-gradient-to-br from-slate-800/50 to-slate-700/30 border border-slate-600/50 rounded-xl p-3">
-                            <p className="text-xs text-slate-400">Quality</p>
-                            <p className="text-lg font-bold text-slate-200">
-                              {Math.round(selected.ai.quality_score * 100)}%
-                            </p>
-                          </div>
-                        </div>
-
-                        <div>
-                          <p className="text-sm font-medium text-slate-300">
-                            AI Suggestion:{" "}
-                            <span className={`font-semibold ${
-                              selected.ai.suggested_status === "approve" 
-                                ? "text-emerald-400" 
-                                : "text-red-400"
-                            }`}>
-                              {selected.ai.suggested_status === "approve" ? "✅ Approve" : "❌ Reject"}
-                            </span>
-                          </p>
-                          <p className="text-xs text-slate-400 mt-1">{selected.ai.reason}</p>
-                        </div>
-
-                        {selected.ai.subject_mismatch && (
-                          <div className="bg-gradient-to-br from-yellow-500/20 to-amber-500/20 border border-yellow-500/30 rounded-xl p-3">
-                            <p className="text-yellow-200 font-semibold flex items-center gap-2">
-                              <span>⚠️</span> Subject Mismatch Detected
-                            </p>
-                            <p className="text-yellow-300 text-sm mt-1">
-                              {selected.ai.subject_mismatch_reason}
-                            </p>
-                          </div>
-                        )}
-
-                        {selected.ai.pii_found && (
-                          <div className="bg-gradient-to-br from-red-500/20 to-rose-500/20 border border-red-500/30 rounded-xl p-3">
-                            <p className="text-red-200 font-semibold flex items-center gap-2">
-                              <span>⚠️</span> PII Found
-                            </p>
-                            <p className="text-red-300 text-sm mt-1">
-                              {selected.ai.pii_matches?.join(", ")}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Override Approve Button */}
-                  <button
-                    onClick={() => overrideApprove(selected.id)}
-                    className="w-full px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 transition-all duration-200 font-semibold shadow-lg shadow-emerald-500/25"
-                  >
-                    ✅ Override Approve
-                  </button>
-                </div>
-              )}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={submitAppeal}
+                  disabled={submittingAppeal || appealText.trim().length < 10}
+                  className="btn-primary flex-1 text-xs py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {submittingAppeal ? "Submitting..." : "Submit Appeal"}
+                </button>
+                <button onClick={closeModal} className="btn-secondary text-xs px-4">
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>

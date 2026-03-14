@@ -16,6 +16,11 @@ from app.utils.dependencies import get_current_user
 from app.utils.notify import notify
 from app.utils.cache import cache_get_json, cache_set_json, cache_delete_prefix
 from app.utils.observability import log_if_slow
+from app.services.feed_pipeline import (
+    append_trust_lookups,
+    append_trust_fields,
+    append_access_fields,
+)
 
 router = APIRouter(prefix="/follow", tags=["Follow System"])
 logger = logging.getLogger(__name__)
@@ -45,95 +50,15 @@ def _public_user_map(user_ids: list[ObjectId]) -> dict[ObjectId, dict]:
 
 
 def _base_feed_pipeline(following_ids: list[ObjectId], current_user_id: ObjectId, limit: int):
-    return [
+    pipeline = [
         {"$match": {"uploader_id": {"$in": following_ids}, "status": "approved"}},
         {"$sort": {"created_at": -1, "_id": -1}},
         {"$limit": limit},
-        {
-            "$lookup": {
-                "from": "users",
-                "localField": "uploader_id",
-                "foreignField": "_id",
-                "as": "uploader",
-            }
-        },
-        {
-            "$lookup": {
-                "from": "reviews",
-                "localField": "_id",
-                "foreignField": "note_id",
-                "as": "reviews",
-            }
-        },
-        {
-            "$lookup": {
-                "from": "purchases",
-                "let": {"uploader_id": "$uploader_id"},
-                "pipeline": [
-                    {
-                        "$lookup": {
-                            "from": "notes",
-                            "localField": "note_id",
-                            "foreignField": "_id",
-                            "as": "note",
-                        }
-                    },
-                    {"$unwind": "$note"},
-                    {"$match": {"$expr": {"$eq": ["$note.uploader_id", "$$uploader_id"]}, "status": "success"}},
-                ],
-                "as": "seller_purchases",
-            }
-        },
-        {
-            "$lookup": {
-                "from": "purchases",
-                "let": {"note_id": "$_id"},
-                "pipeline": [
-                    {
-                        "$match": {
-                            "$expr": {
-                                "$and": [
-                                    {"$eq": ["$note_id", "$$note_id"]},
-                                    {"$eq": ["$user_id", current_user_id]},
-                                    {"$eq": ["$status", "success"]},
-                                ]
-                            }
-                        }
-                    }
-                ],
-                "as": "user_purchase",
-            }
-        },
-        {
-            "$addFields": {
-                "uploader_name": {"$arrayElemAt": ["$uploader.name", 0]},
-                "verified_seller": {"$arrayElemAt": ["$uploader.verified_seller", 0]},
-                "avg_rating": {
-                    "$cond": {
-                        "if": {"$gt": [{"$size": "$reviews"}, 0]},
-                        "then": {"$avg": "$reviews.rating"},
-                        "else": 0,
-                    }
-                },
-                "review_count": {"$size": "$reviews"},
-                "seller_total_sales": {"$size": "$seller_purchases"},
-                "seller_trust_level": {
-                    "$cond": {
-                        "if": {"$gte": [{"$size": "$seller_purchases"}, 20]},
-                        "then": "top",
-                        "else": {"$cond": {"if": {"$gte": [{"$size": "$seller_purchases"}, 5]}, "then": "trusted", "else": "new"}},
-                    }
-                },
-                "has_access": {
-                    "$or": [
-                        {"$eq": ["$uploader_id", current_user_id]},
-                        {"$eq": ["$is_paid", False]},
-                        {"$gt": [{"$size": "$user_purchase"}, 0]},
-                    ]
-                },
-            }
-        },
     ]
+    append_trust_lookups(pipeline, include_college=False)
+    append_trust_fields(pipeline, include_college=False)
+    append_access_fields(pipeline, current_user_id=current_user_id)
+    return pipeline
 
 
 def _subject_preferences_for_user(user_oid: ObjectId) -> dict[str, float]:

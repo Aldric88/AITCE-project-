@@ -31,6 +31,7 @@ class UserResponse(BaseModel):
     
     cluster_id: Optional[str] = None
     verified_by_domain: bool = False
+    wallet_points: int = 0
 
 
 class TokenResponse(BaseModel):

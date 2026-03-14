@@ -1,6 +1,8 @@
 from app.database import users_collection
 from app.utils.security import hash_password, verify_password
 from app.models.user_model import user_helper
+from app.services.points_service import award_points
+from app.config import settings
 
 
 def get_user_by_email(email: str):
@@ -15,7 +17,15 @@ def create_user(user_data: dict):
     user_data["is_email_verified"] = False  # email verification
     user_data["email_otp"] = None
     user_data["email_otp_expiry"] = None
+    user_data["wallet_points"] = 0
     result = users_collection.insert_one(user_data)
+    if settings.INITIAL_WALLET_POINTS > 0:
+        award_points(
+            user_id=result.inserted_id,
+            points=settings.INITIAL_WALLET_POINTS,
+            reason="signup_bonus",
+            meta={"source": "auth.signup"},
+        )
     new_user = users_collection.find_one({"_id": result.inserted_id})
     return user_helper(new_user)
 

@@ -5,12 +5,13 @@ from fastapi.responses import FileResponse
 
 from app.database import notes_collection, purchases_collection, uploads_collection
 from app.utils.dependencies import get_current_user
+from app.services.pass_service import has_active_creator_pass
 
 router = APIRouter(prefix="/download", tags=["Download"])
 
 
-def _has_purchase_access(user_id: str, note_id: str) -> bool:
-    return purchases_collection.find_one(
+def _has_note_access(note: dict, user_id: str, note_id: str) -> bool:
+    purchase = purchases_collection.find_one(
         {
             "note_id": ObjectId(note_id),
             "$or": [
@@ -18,7 +19,13 @@ def _has_purchase_access(user_id: str, note_id: str) -> bool:
                 {"user_id": ObjectId(user_id), "status": {"$in": ["success", "paid", "free"]}},
             ],
         }
-    ) is not None
+    )
+    if purchase is not None:
+        return True
+    uploader_id = note.get("uploader_id")
+    if not uploader_id:
+        return False
+    return has_active_creator_pass(user_id, uploader_id)
 
 
 def _resolve_note_file(file_url: str):
@@ -59,7 +66,7 @@ def download_note(note_id: str, current_user=Depends(get_current_user)):
     is_owner = str(note.get("uploader_id")) == current_user["id"]
     
     if not is_owner:
-        access = _has_purchase_access(current_user["id"], note_id)
+        access = _has_note_access(note, current_user["id"], note_id)
         if not access:
             raise HTTPException(status_code=403, detail="Unlock the note first")
 

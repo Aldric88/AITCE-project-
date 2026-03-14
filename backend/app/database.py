@@ -45,13 +45,19 @@ revalidation_jobs_collection = db["revalidation_jobs"]
 college_domains_collection = db["college_domains"]
 clusters_collection = db["clusters"]
 colleges_collection = db["colleges"]
-note_versions_collection = db["note_versions"]
 class_spaces_collection = db["class_spaces"]
 space_memberships_collection = db["space_memberships"]
 space_announcements_collection = db["space_announcements"]
+space_notes_collection = db["space_notes"]
 coupons_collection = db["coupons"]
 campaigns_collection = db["campaigns"]
 cluster_inference_candidates_collection = db["cluster_inference_candidates"]
+request_pledges_collection = db["request_pledges"]
+creator_passes_collection = db["creator_passes"]
+pass_subscriptions_collection = db["pass_subscriptions"]
+note_annotations_collection = db["note_annotations"]
+note_versions_collection = db["note_versions"]
+seller_experiments_collection = db["seller_experiments"]
 
 
 def ensure_indexes():
@@ -144,6 +150,11 @@ def ensure_indexes():
             [("created_at", 1)],
             name="idempotency_created_at",
         )
+        idempotency_keys_collection.create_index(
+            [("created_at", 1)],
+            name="idempotency_ttl_7d",
+            expireAfterSeconds=7 * 24 * 3600,
+        )
     except PyMongoError as exc:
         logger.warning("Unable to create idempotency indexes: %s", exc)
 
@@ -157,6 +168,11 @@ def ensure_indexes():
             [("user_id", 1), ("revoked", 1)],
             name="refresh_user_revoked",
         )
+        refresh_tokens_collection.create_index(
+            [("expires_at", 1)],
+            name="refresh_expires_ttl",
+            expireAfterSeconds=0,
+        )
     except PyMongoError as exc:
         logger.warning("Unable to create refresh token indexes: %s", exc)
 
@@ -165,6 +181,11 @@ def ensure_indexes():
             [("jti", 1)],
             name="uniq_revoked_jti",
             unique=True,
+        )
+        revoked_tokens_collection.create_index(
+            [("expires_at", 1)],
+            name="revoked_expires_ttl",
+            expireAfterSeconds=0,
         )
     except PyMongoError as exc:
         logger.warning("Unable to create revoked token indexes: %s", exc)
@@ -217,6 +238,11 @@ def ensure_indexes():
     try:
         notifications_collection.create_index([("user_id", 1), ("created_at", -1)], name="notifications_user_created")
         notifications_collection.create_index([("user_id", 1), ("is_read", 1)], name="notifications_user_is_read")
+        notifications_collection.create_index(
+            [("created_at", 1)],
+            name="notifications_ttl_120d",
+            expireAfterSeconds=120 * 24 * 3600,
+        )
     except PyMongoError as exc:
         logger.warning("Unable to create notifications indexes: %s", exc)
 
@@ -225,6 +251,12 @@ def ensure_indexes():
         likes_collection.create_index([("note_id", 1)], name="likes_note")
     except PyMongoError as exc:
         logger.warning("Unable to create likes indexes: %s", exc)
+
+    try:
+        leaderboard_collection.create_index([("user_id", 1), ("created_at", -1)], name="leaderboard_user_created")
+        leaderboard_collection.create_index([("reason", 1), ("created_at", -1)], name="leaderboard_reason_created")
+    except PyMongoError as exc:
+        logger.warning("Unable to create leaderboard indexes: %s", exc)
 
     try:
         bookmarks_collection.create_index([("user_id", 1), ("note_id", 1)], unique=True, name="bookmarks_user_note_uniq")
@@ -264,16 +296,16 @@ def ensure_indexes():
         logger.warning("Unable to create bundles indexes: %s", exc)
 
     try:
-        note_versions_collection.create_index([("note_id", 1), ("version_no", -1)], name="note_versions_note_version")
-    except PyMongoError as exc:
-        logger.warning("Unable to create note versions indexes: %s", exc)
-
-    try:
         class_spaces_collection.create_index([("invite_code", 1)], unique=True, name="class_spaces_invite_code_uniq")
         class_spaces_collection.create_index([("dept", 1), ("semester", 1), ("section", 1)], name="class_spaces_dept_sem_section")
+        class_spaces_collection.create_index([("created_by", 1)], name="class_spaces_created_by")
         space_memberships_collection.create_index([("space_id", 1), ("user_id", 1)], unique=True, name="space_memberships_space_user_uniq")
         space_memberships_collection.create_index([("user_id", 1)], name="space_memberships_user")
+        space_memberships_collection.create_index([("space_id", 1), ("role", 1)], name="space_memberships_space_role")
         space_announcements_collection.create_index([("space_id", 1), ("created_at", -1)], name="space_announce_space_created")
+        space_announcements_collection.create_index([("created_by", 1)], name="space_announce_created_by")
+        space_notes_collection.create_index([("space_id", 1), ("note_id", 1)], unique=True, name="space_notes_space_note_uniq")
+        space_notes_collection.create_index([("space_id", 1), ("shared_at", -1)], name="space_notes_space_shared_at")
     except PyMongoError as exc:
         logger.warning("Unable to create class spaces indexes: %s", exc)
 
@@ -282,6 +314,20 @@ def ensure_indexes():
         coupons_collection.create_index([("seller_id", 1), ("is_active", 1)], name="coupons_seller_active")
         campaigns_collection.create_index([("seller_id", 1), ("is_active", 1)], name="campaigns_seller_active")
         campaigns_collection.create_index([("note_id", 1), ("is_active", 1)], name="campaigns_note_active")
+        creator_passes_collection.create_index([("seller_id", 1), ("is_active", 1)], name="creator_passes_seller_active")
+        pass_subscriptions_collection.create_index(
+            [("pass_id", 1), ("buyer_id", 1), ("status", 1)],
+            name="pass_subscriptions_pass_buyer_status",
+        )
+        pass_subscriptions_collection.create_index(
+            [("buyer_id", 1), ("status", 1), ("expires_at", -1)],
+            name="pass_subscriptions_buyer_status_expires",
+        )
+        pass_subscriptions_collection.create_index(
+            [("expires_at", 1)],
+            name="pass_subscriptions_expires_ttl",
+            expireAfterSeconds=0,
+        )
     except PyMongoError as exc:
         logger.warning("Unable to create monetization indexes: %s", exc)
 
@@ -293,5 +339,17 @@ def ensure_indexes():
         colleges_collection.create_index([("name", 1)], unique=True, name="colleges_name_uniq")
         cluster_inference_candidates_collection.create_index([("domain", 1)], unique=True, name="cluster_candidates_domain_uniq")
         cluster_inference_candidates_collection.create_index([("review_status", 1), ("updated_at", -1)], name="cluster_candidates_status_updated")
+        request_pledges_collection.create_index([("request_id", 1), ("user_id", 1)], unique=True, name="request_pledges_request_user_uniq")
+        request_pledges_collection.create_index([("request_id", 1), ("created_at", -1)], name="request_pledges_request_created")
+        note_annotations_collection.create_index([("note_id", 1), ("user_id", 1)], unique=True, name="note_annotations_note_user_uniq")
+        note_annotations_collection.create_index([("updated_at", -1)], name="note_annotations_updated")
+        view_sessions_collection.create_index([("expires_at", 1)], name="view_sessions_expires_ttl", expireAfterSeconds=0)
     except PyMongoError as exc:
         logger.warning("Unable to create cluster/domain indexes: %s", exc)
+
+    try:
+        note_versions_collection.create_index([("note_id", 1), ("version_no", -1)], name="note_versions_note_version_no")
+        seller_experiments_collection.create_index([("seller_id", 1), ("status", 1)], name="seller_experiments_seller_status")
+        seller_experiments_collection.create_index([("seller_id", 1), ("created_at", -1)], name="seller_experiments_seller_created")
+    except PyMongoError as exc:
+        logger.warning("Unable to create note_versions/seller_experiments indexes: %s", exc)
