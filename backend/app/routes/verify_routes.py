@@ -1,5 +1,5 @@
 import time
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
 from app.database import users_collection
@@ -71,7 +71,7 @@ def _otp_email_html(otp: str, email: str) -> str:
 
 
 @router.post("/send-otp")
-def send_otp(data: SendOtpRequest):
+def send_otp(data: SendOtpRequest, background_tasks: BackgroundTasks):
     user = users_collection.find_one({"email": data.email})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -101,14 +101,16 @@ def send_otp(data: SendOtpRequest):
         }},
     )
 
+    from app.utils.email_service import EMAIL_USER
     html_body = _otp_email_html(otp, data.email)
-    email_sent = send_email_html(
-        to_email=data.email,
-        subject="Your Notes Market Verification Code",
-        html_body=html_body,
-    )
 
-    if email_sent:
+    if EMAIL_USER:
+        background_tasks.add_task(
+            send_email_html,
+            to_email=data.email,
+            subject="Your Notes Market Verification Code",
+            html_body=html_body,
+        )
         return {"message": "OTP sent to your college email ✅"}
     else:
         # Dev fallback — return OTP in response when SMTP not configured
