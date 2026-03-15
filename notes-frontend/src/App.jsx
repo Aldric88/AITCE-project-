@@ -6,6 +6,7 @@ const Signup = lazy(() => import("./pages/Signup"));
 const Login = lazy(() => import("./pages/Login"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const UploadNote = lazy(() => import("./pages/UploadNote"));
+const SellerGuidelines = lazy(() => import("./pages/SellerGuidelines"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 const ModerationPanel = lazy(() => import("./pages/ModerationPanel"));
 const RejectedNotes = lazy(() => import("./pages/RejectedNotes"));
@@ -50,6 +51,7 @@ export default function App() {
           <Route path="/dashboard" element={Protected(<Dashboard />)} />
           <Route path="/upload" element={Protected(<UploadNote />)} />
           <Route path="/upload-note" element={Protected(<UploadNote />)} />
+          <Route path="/seller-guidelines" element={Protected(<SellerGuidelines />)} />
           <Route path="/leaderboard" element={Protected(<Leaderboard />)} />
           <Route path="/moderation" element={Protected(<ModerationPanel />)} />
           <Route path="/moderation-dashboard" element={Protected(<ModerationDashboard />)} />

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import Layout from "../components/Layout";
 import api from "../api/axios";
 import toast from "react-hot-toast";
@@ -137,6 +138,14 @@ export default function UploadNote() {
               ⛔ You have been banned from uploading notes after {violations} violations. You can still browse and purchase notes.
             </div>
           )}
+
+          {/* Seller guidelines nudge */}
+          <div className="mb-5 p-3 border border-black bg-neutral-50 text-sm flex items-center justify-between">
+            <span className="text-gray-600">First time uploading? Read the rules before you publish.</span>
+            <Link to="/seller-guidelines" className="font-black uppercase text-xs tracking-wide underline hover:no-underline">
+              Seller Guidelines →
+            </Link>
+          </div>
 
           {/* Violation counter */}
           {canUpload && violations > 0 && (

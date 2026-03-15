@@ -46,6 +46,7 @@ export default function Layout({ title, children }) {
         label: "Sell",
         links: [
           { to: "/seller-dashboard", label: "Seller Dashboard" },
+          { to: "/seller-guidelines", label: "Seller Guidelines" },
           { to: "/passes", label: "Creator Passes" },
           { to: "/requests", label: "Requests" },
           { to: "/bundles", label: "Bundles" },
