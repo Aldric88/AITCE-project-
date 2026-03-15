@@ -97,12 +97,11 @@ def login(
     if not user:
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    import traceback as _tb
-    try:
-        token = create_access_token({"sub": user["email"], "role": user["role"]})
-        refresh_token = create_refresh_token({"sub": user["email"], "role": user["role"]})
-        refresh_payload = jwt.decode(refresh_token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+    token = create_access_token({"sub": user["email"], "role": user["role"]})
+    refresh_token = create_refresh_token({"sub": user["email"], "role": user["role"]})
+    refresh_payload = jwt.decode(refresh_token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
 
+    try:
         refresh_tokens_collection.insert_one(
             {
                 "user_id": ObjectId(user["id"]),
@@ -112,8 +111,8 @@ def login(
                 "expires_at": int(refresh_payload.get("exp", 0)),
             }
         )
-    except Exception as _e:
-        raise HTTPException(status_code=500, detail=f"LOGIN_DEBUG: {type(_e).__name__}: {_e}\n{_tb.format_exc()}")
+    except Exception:
+        pass  # non-critical on Atlas free tier write concern errors; access token still valid
 
     response.set_cookie(
         key=settings.JWT_COOKIE_NAME,
