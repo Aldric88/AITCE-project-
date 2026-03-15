@@ -78,7 +78,7 @@ def _build_redis_client() -> Optional["Redis"]:
     if Redis is None:
         return None
     try:
-        client = Redis.from_url(settings.REDIS_URL, decode_responses=True, socket_timeout=0.2)
+        client = Redis.from_url(settings.REDIS_URL, decode_responses=True, socket_timeout=3, socket_connect_timeout=3, ssl_cert_reqs=None)
         client.ping()
         return client
     except Exception as exc:

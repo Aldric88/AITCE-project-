@@ -15,7 +15,7 @@ EMAIL_USER = os.getenv("EMAIL_USER")
 EMAIL_PASS = os.getenv("EMAIL_PASS")
 EMAIL_FROM = os.getenv("EMAIL_FROM", EMAIL_USER)
 
-logger.info(f"Email service loaded — EMAIL_USER={'set' if EMAIL_USER else 'NOT SET'}")
+print(f"[email_service] EMAIL_USER={'SET ✅' if EMAIL_USER else 'NOT SET ❌'}", flush=True)
 
 
 def send_email(to_email: str, subject: str, body: str) -> bool:

@@ -16,7 +16,7 @@ except Exception:  # pragma: no cover
 _redis = None
 if Redis is not None:
     try:
-        _redis = Redis.from_url(settings.REDIS_URL, decode_responses=True, socket_timeout=0.2)
+        _redis = Redis.from_url(settings.REDIS_URL, decode_responses=True, socket_timeout=3, socket_connect_timeout=3, ssl_cert_reqs=None)
         _redis.ping()
     except Exception as exc:  # pragma: no cover
         logger.warning("Cache Redis unavailable; falling back to in-memory cache: %s", exc)
