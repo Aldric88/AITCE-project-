@@ -50,7 +50,14 @@ def signup(user: UserCreate, _=Depends(signup_limiter)):
     if domain_check.get("institution_name"):
         user_data["institution_name"] = domain_check["institution_name"]
     user_data["domain_check_source"] = domain_check.get("source", "unknown")
-    cluster_meta = resolve_user_cluster_metadata(user.email)
+    try:
+        cluster_meta = resolve_user_cluster_metadata(user.email)
+    except Exception:
+        cluster_meta = {
+            "cluster_id": None, "college_id": None, "university_type": None,
+            "verified_by_domain": False, "requires_manual_selection": True,
+            "cluster_source": "error_fallback", "inference_confidence": 0.0,
+        }
     user_data["cluster_id"] = cluster_meta["cluster_id"]
     user_data["verified_by_domain"] = cluster_meta["verified_by_domain"]
     user_data["requires_manual_selection"] = cluster_meta["requires_manual_selection"]

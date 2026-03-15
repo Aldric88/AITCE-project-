@@ -138,8 +138,7 @@ def _ai_classify_university_type(domain):
                     "reason": str(parsed.get("reason", "")),
                 }
             except (ValueError, KeyError, TypeError, urllib.error.URLError, TimeoutError, json.JSONDecodeError, IndexError):
-                if mode == "gemini":
-                    raise
+                pass  # fall through to heuristic/unmapped fallback
 
     ollama_url = os.getenv("CLUSTER_AI_OLLAMA_URL", os.getenv("OLLAMA_URL", "http://127.0.0.1:11434/api/generate"))
     ollama_model = os.getenv("CLUSTER_AI_OLLAMA_MODEL", os.getenv("OLLAMA_MODEL", "llama3.1:8b"))
