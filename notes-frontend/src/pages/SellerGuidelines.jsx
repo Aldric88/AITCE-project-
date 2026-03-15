@@ -118,10 +118,10 @@ export default function SellerGuidelines() {
       <div className="max-w-4xl mx-auto">
 
         {/* Header */}
-        <div className="border-2 border-black bg-black text-white p-8 mb-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)]">
+        <div className="border-2 border-black dark:border-zinc-700 bg-black dark:bg-zinc-900 text-white p-8 mb-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)]">
           <p className="text-xs font-bold uppercase tracking-widest text-yellow-400 mb-2">Notes Market</p>
           <h1 className="text-4xl font-black uppercase tracking-tighter mb-3">Seller Guidelines</h1>
-          <p className="text-gray-300 text-sm leading-relaxed">
+          <p className="text-gray-300 dark:text-zinc-400 text-sm leading-relaxed">
             Read these rules before uploading. Our AI moderates every note instantly —
             understanding these guidelines helps your notes get published without rejection.
           </p>
@@ -131,10 +131,10 @@ export default function SellerGuidelines() {
         {user && (
           <div className={`mb-8 p-4 border-2 font-bold text-sm uppercase tracking-wide flex items-center justify-between ${
             !canUpload
-              ? "border-red-600 bg-red-50 text-red-700"
+              ? "border-red-600 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-400"
               : violations > 0
-              ? "border-yellow-500 bg-yellow-50 text-yellow-800"
-              : "border-green-500 bg-green-50 text-green-700"
+              ? "border-yellow-500 bg-yellow-50 dark:bg-yellow-950 text-yellow-800 dark:text-yellow-400"
+              : "border-green-500 bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400"
           }`}>
             <span>
               {!canUpload
@@ -146,7 +146,7 @@ export default function SellerGuidelines() {
             {canUpload && (
               <Link
                 to="/upload-note"
-                className="ml-4 px-4 py-1 bg-black text-white text-xs font-black uppercase tracking-wide hover:bg-neutral-800 transition"
+                className="ml-4 px-4 py-1 bg-black dark:bg-white text-white dark:text-black text-xs font-black uppercase tracking-wide hover:bg-zinc-800 dark:hover:bg-zinc-100 transition"
               >
                 Upload Note →
               </Link>
@@ -157,15 +157,15 @@ export default function SellerGuidelines() {
         {/* Rules sections */}
         <div className="space-y-6 mb-10">
           {SECTIONS.map((section) => (
-            <div key={section.id} className="border border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-              <div className="border-b border-black px-6 py-3 bg-neutral-50 flex items-center gap-3">
+            <div key={section.id} className="border border-black dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.05)]">
+              <div className="border-b border-black dark:border-zinc-700 px-6 py-3 bg-neutral-50 dark:bg-zinc-800 flex items-center gap-3">
                 <span className="text-xl">{section.icon}</span>
-                <h2 className="font-black uppercase tracking-tight text-sm">{section.title}</h2>
+                <h2 className="font-black uppercase tracking-tight text-sm text-black dark:text-white">{section.title}</h2>
               </div>
-              <ul className="px-6 py-4 space-y-2">
+              <ul className="px-6 py-4 space-y-3">
                 {section.rules.map((rule, i) => (
-                  <li key={i} className="flex items-start gap-3 text-sm text-gray-800">
-                    <span className="mt-0.5 w-4 h-4 flex-shrink-0 border border-black bg-black text-white flex items-center justify-center text-[9px] font-black">
+                  <li key={i} className="flex items-start gap-3 text-sm text-gray-800 dark:text-zinc-300">
+                    <span className="mt-0.5 w-4 h-4 flex-shrink-0 border border-black dark:border-zinc-500 bg-black dark:bg-zinc-700 text-white flex items-center justify-center text-[9px] font-black">
                       {i + 1}
                     </span>
                     {rule}
@@ -179,16 +179,16 @@ export default function SellerGuidelines() {
         {/* Quick tips */}
         <div className="grid md:grid-cols-2 gap-6 mb-10">
           {TIP_BOXES.map((box) => (
-            <div key={box.title} className="border border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-              <div className="border-b border-black px-5 py-3 bg-neutral-50">
-                <h3 className="font-black uppercase tracking-tight text-sm">
+            <div key={box.title} className="border border-black dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.05)]">
+              <div className="border-b border-black dark:border-zinc-700 px-5 py-3 bg-neutral-50 dark:bg-zinc-800">
+                <h3 className="font-black uppercase tracking-tight text-sm text-black dark:text-white">
                   {box.icon} {box.title}
                 </h3>
               </div>
               <ul className="px-5 py-4 space-y-2">
                 {box.tips.map((tip, i) => (
-                  <li key={i} className="text-sm text-gray-700 flex items-start gap-2">
-                    <span className="text-gray-400 mt-0.5">—</span>
+                  <li key={i} className="text-sm text-gray-700 dark:text-zinc-400 flex items-start gap-2">
+                    <span className="text-gray-400 dark:text-zinc-600 mt-0.5">—</span>
                     {tip}
                   </li>
                 ))}
@@ -198,14 +198,14 @@ export default function SellerGuidelines() {
         </div>
 
         {/* CTA */}
-        <div className="border-2 border-black p-6 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] mb-10">
+        <div className="border-2 border-black dark:border-zinc-700 p-6 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white dark:bg-zinc-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.05)] mb-10">
           <div>
-            <p className="font-black uppercase tracking-tight text-lg">Ready to publish?</p>
-            <p className="text-sm text-gray-600">Follow the rules above and your note will be live instantly.</p>
+            <p className="font-black uppercase tracking-tight text-lg text-black dark:text-white">Ready to publish?</p>
+            <p className="text-sm text-gray-600 dark:text-zinc-400">Follow the rules above and your note will be live instantly.</p>
           </div>
           <Link
             to="/upload-note"
-            className="px-6 py-3 bg-black text-white font-black uppercase tracking-wide text-sm border-2 border-black hover:bg-neutral-800 transition shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] whitespace-nowrap"
+            className="px-6 py-3 bg-black dark:bg-white text-white dark:text-black font-black uppercase tracking-wide text-sm border-2 border-black dark:border-white hover:bg-zinc-800 dark:hover:bg-zinc-100 transition shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] whitespace-nowrap"
           >
             🚀 Upload a Note
           </Link>

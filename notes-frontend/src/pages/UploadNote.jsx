@@ -140,9 +140,9 @@ export default function UploadNote() {
           )}
 
           {/* Seller guidelines nudge */}
-          <div className="mb-5 p-3 border border-black bg-neutral-50 text-sm flex items-center justify-between">
-            <span className="text-gray-600">First time uploading? Read the rules before you publish.</span>
-            <Link to="/seller-guidelines" className="font-black uppercase text-xs tracking-wide underline hover:no-underline">
+          <div className="mb-5 p-3 border border-black dark:border-zinc-600 bg-neutral-50 dark:bg-zinc-800 text-sm flex items-center justify-between">
+            <span className="text-gray-600 dark:text-zinc-400">First time uploading? Read the rules before you publish.</span>
+            <Link to="/seller-guidelines" className="font-black uppercase text-xs tracking-wide underline hover:no-underline text-black dark:text-white">
               Seller Guidelines →
             </Link>
           </div>
