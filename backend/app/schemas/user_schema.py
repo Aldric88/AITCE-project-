@@ -8,7 +8,7 @@ RoleType = Literal["student", "moderator", "admin"]
 class UserCreate(BaseModel):
     name: str = Field(min_length=2)
     email: EmailStr
-    password: str = Field(min_length=6)
+    password: str = Field(min_length=8)
     dept: str
     year: int
     section: str

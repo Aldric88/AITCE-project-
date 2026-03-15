@@ -117,6 +117,8 @@ def create_note(note: NoteCreate, current_user=Depends(require_email_verified)):
         if split_value > 0:
             collaborator_splits[str(user_id)] = split_value
             split_total += split_value
+    if collaborator_ids and split_total == 0:
+        raise HTTPException(status_code=400, detail="Collaborator split total must be greater than 0%")
     if split_total > 95:
         raise HTTPException(status_code=400, detail="Collaborator split total must be <= 95%")
     if collaborator_ids:

@@ -83,7 +83,7 @@ export default function Signup() {
     try {
       await api.post("/auth/signup", form);
       toast.success("Account created! Please verify your college email.");
-      navigate("/verify-email");
+      navigate("/verify-email", { state: { email: form.email } });
     } catch (err) {
       toast.error(err.response?.data?.detail || "Signup failed");
     } finally {
@@ -187,7 +187,7 @@ export default function Signup() {
               value={form.password}
               onChange={handleChange}
               required
-              minLength={6}
+              minLength={8}
               className="input-field rounded-none border-black dark:border-zinc-500 dark:bg-zinc-800 dark:text-white focus:ring-black"
               placeholder="••••••••"
             />

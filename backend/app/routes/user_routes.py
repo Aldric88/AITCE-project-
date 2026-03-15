@@ -37,7 +37,6 @@ def creator_profile(user_id: str):
         "creator": {
             "id": str(user["_id"]),
             "name": user.get("name"),
-            "email": user.get("email"),
             "dept": user.get("dept"),
             "year": user.get("year"),
             "section": user.get("section"),

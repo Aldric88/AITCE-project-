@@ -133,19 +133,6 @@ def confirm_otp(data: VerifyOtpRequest):
     if not user.get("email_otp") or not user.get("email_otp_expiry"):
         raise HTTPException(status_code=400, detail="No OTP requested. Please request a new OTP.")
 
-    # Attempt limit
-    attempts = int(user.get("email_otp_attempts", 0))
-    if attempts >= OTP_MAX_ATTEMPTS:
-        # Invalidate the OTP
-        users_collection.update_one(
-            {"email": data.email},
-            {"$unset": {"email_otp": "", "email_otp_expiry": "", "email_otp_attempts": ""}},
-        )
-        raise HTTPException(
-            status_code=400,
-            detail="Too many wrong attempts. Please request a new OTP.",
-        )
-
     # Expiry check
     if int(time.time()) > user["email_otp_expiry"]:
         users_collection.update_one(
@@ -154,13 +141,28 @@ def confirm_otp(data: VerifyOtpRequest):
         )
         raise HTTPException(status_code=400, detail="OTP expired. Please request a new one.")
 
-    # Wrong OTP — increment attempt counter
+    # Wrong OTP — atomically increment attempt counter only if under the limit
     if user["email_otp"] != data.otp.strip():
-        users_collection.update_one(
-            {"email": data.email},
+        result = users_collection.find_one_and_update(
+            {"email": data.email, "email_otp_attempts": {"$lt": OTP_MAX_ATTEMPTS}},
             {"$inc": {"email_otp_attempts": 1}},
+            return_document=True,
         )
-        remaining = OTP_MAX_ATTEMPTS - (attempts + 1)
+        if result is None:
+            # Already at max attempts — invalidate
+            users_collection.update_one(
+                {"email": data.email},
+                {"$unset": {"email_otp": "", "email_otp_expiry": "", "email_otp_attempts": ""}},
+            )
+            raise HTTPException(status_code=400, detail="Too many wrong attempts. Please request a new OTP.")
+        attempts_after = int(result.get("email_otp_attempts", 1))
+        remaining = OTP_MAX_ATTEMPTS - attempts_after
+        if remaining <= 0:
+            users_collection.update_one(
+                {"email": data.email},
+                {"$unset": {"email_otp": "", "email_otp_expiry": "", "email_otp_attempts": ""}},
+            )
+            raise HTTPException(status_code=400, detail="Too many wrong attempts. Please request a new OTP.")
         raise HTTPException(
             status_code=400,
             detail=f"Invalid OTP. {remaining} attempt{'s' if remaining != 1 else ''} remaining.",

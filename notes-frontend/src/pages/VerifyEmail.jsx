@@ -3,13 +3,15 @@ import Layout from "../components/Layout";
 import api from "../api/axios";
 import toast from "react-hot-toast";
 import { useAuth } from "../auth/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 const RESEND_COOLDOWN = 60; // seconds — must match backend
 
 export default function VerifyEmail() {
   const { user, refreshUser } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const emailToUse = user?.email || location.state?.email;
 
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
@@ -35,7 +37,7 @@ export default function VerifyEmail() {
   const sendOtp = async () => {
     try {
       setLoading(true);
-      const res = await api.post("/verify/send-otp", { email: user.email });
+      const res = await api.post("/verify/send-otp", { email: emailToUse });
       setOtpSent(true);
       setCooldown(RESEND_COOLDOWN);
       setAttemptsLeft(3);
@@ -62,7 +64,7 @@ export default function VerifyEmail() {
     if (otp.length !== 6) return;
     try {
       setLoading(true);
-      await api.post("/verify/confirm-otp", { email: user.email, otp });
+      await api.post("/verify/confirm-otp", { email: emailToUse, otp });
       toast.success("Email verified! Welcome to Notes Market.");
       await refreshUser();
     } catch (err) {
@@ -102,7 +104,7 @@ export default function VerifyEmail() {
               <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 mb-1">
                 College Email
               </p>
-              <p className="text-sm font-bold text-black dark:text-white">{user?.email}</p>
+              <p className="text-sm font-bold text-black dark:text-white">{emailToUse}</p>
             </div>
 
             {/* Steps */}
