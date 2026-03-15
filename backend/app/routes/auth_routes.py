@@ -254,6 +254,9 @@ def me(current_user=Depends(get_current_user)):
         "is_email_verified": current_user.get("is_email_verified", False),
         "profile_pic_url": current_user.get("profile_pic_url", None),
         "wallet_points": int(current_user.get("wallet_points", 0)),
+        "upload_violations": int(current_user.get("upload_violations", 0)),
+        "can_upload": current_user.get("can_upload", True),
+        "verified_seller": current_user.get("verified_seller", False),
         "followers_count": followers,
         "following_count": following
     }

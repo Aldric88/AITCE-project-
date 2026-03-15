@@ -71,8 +71,8 @@ def download_note(note_id: str, current_user=Depends(get_current_user)):
             raise HTTPException(status_code=403, detail="Unlock the note first")
 
         # ❌ Paid notes cannot be downloaded (View Only) - Business Rule
-        # Owner CAN download (to verify/backup)e
-        if note.get("is_paid", False) is True:
+        # Owner CAN download (to verify/backup)
+        if note.get("is_paid", False):
              raise HTTPException(status_code=403, detail="Paid notes cannot be downloaded (View Only)")
 
     file_url = note.get("file_url")

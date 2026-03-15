@@ -78,15 +78,11 @@ def start_session(note_id: str, current_user=Depends(get_current_user)):
 
     # Check access (paid/free rules)
     if note.get("is_paid", False):
-        # Paid note: user must have successful purchase
+        # Paid note: user must have successful purchase or active creator pass
         existing = _has_purchase_access(current_user["id"], note_id, note.get("uploader_id"))
         if not existing:
             raise HTTPException(status_code=403, detail="Buy this paid note to view")
-    else:
-        # Free note must be unlocked too
-        existing = _has_purchase_access(current_user["id"], note_id, note.get("uploader_id"))
-        if not existing:
-            raise HTTPException(status_code=403, detail="Unlock this note first")
+    # Free notes are open to all authenticated users — no purchase required
 
     token = secrets.token_urlsafe(32)
     expires_at = int(time.time()) + SESSION_TTL_SECONDS

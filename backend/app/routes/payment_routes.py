@@ -187,7 +187,7 @@ def create_order(
         except Exception:
             coupon = None
         if coupon:
-            if (not coupon.get("expires_at") or int(coupon.get("expires_at")) >= now) and int(coupon.get("uses", 0)) < int(coupon.get("max_uses", 0)):
+            if (not coupon.get("expires_at") or int(coupon.get("expires_at")) >= now) and int(coupon.get("uses", 0)) < int(coupon.get("max_uses") or 9999):
                 if (not coupon.get("note_id")) or coupon.get("note_id") == note["_id"]:
                     coupon_discount = int((price * int(coupon.get("percent_off", 0))) / 100)
                     if coupon_discount >= discount_amount:
@@ -481,7 +481,7 @@ def mock_checkout(
         try:
             coupon = coupons_collection.find_one({"code": data.coupon_code.strip().upper(), "is_active": True})
             if coupon and (not coupon.get("expires_at") or int(coupon.get("expires_at")) >= now):
-                if int(coupon.get("uses", 0)) < int(coupon.get("max_uses", 1)):
+                if int(coupon.get("uses", 0)) < int(coupon.get("max_uses") or 9999):
                     coupon_discount = int((price * int(coupon.get("percent_off", 0))) / 100)
                     if coupon_discount >= discount_amount:
                         discount_amount = coupon_discount

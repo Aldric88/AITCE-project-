@@ -157,14 +157,14 @@ export default function SellerGuidelines() {
         {/* Rules sections */}
         <div className="space-y-6 mb-10">
           {SECTIONS.map((section) => (
-            <div key={section.id} className="border border-black dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.05)]">
+            <div key={section.id} className="group border border-black dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.05)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-[8px_8px_0px_0px_rgba(255,255,255,0.08)]">
               <div className="border-b border-black dark:border-zinc-700 px-6 py-3 bg-neutral-50 dark:bg-zinc-800 flex items-center gap-3">
-                <span className="text-xl">{section.icon}</span>
+                <span className="text-xl transition-transform duration-200 group-hover:scale-125 group-hover:rotate-6 inline-block">{section.icon}</span>
                 <h2 className="font-black uppercase tracking-tight text-sm text-black dark:text-white">{section.title}</h2>
               </div>
               <ul className="px-6 py-4 space-y-3">
                 {section.rules.map((rule, i) => (
-                  <li key={i} className="flex items-start gap-3 text-sm text-gray-800 dark:text-zinc-300">
+                  <li key={i} className="flex items-start gap-3 text-sm text-gray-800 dark:text-zinc-300 px-2 py-1 rounded transition-colors duration-150 hover:bg-neutral-50 dark:hover:bg-zinc-800">
                     <span className="mt-0.5 w-4 h-4 flex-shrink-0 border border-black dark:border-zinc-500 bg-black dark:bg-zinc-700 text-white flex items-center justify-center text-[9px] font-black">
                       {i + 1}
                     </span>
@@ -179,15 +179,15 @@ export default function SellerGuidelines() {
         {/* Quick tips */}
         <div className="grid md:grid-cols-2 gap-6 mb-10">
           {TIP_BOXES.map((box) => (
-            <div key={box.title} className="border border-black dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.05)]">
+            <div key={box.title} className="group border border-black dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.05)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-[8px_8px_0px_0px_rgba(255,255,255,0.08)]">
               <div className="border-b border-black dark:border-zinc-700 px-5 py-3 bg-neutral-50 dark:bg-zinc-800">
                 <h3 className="font-black uppercase tracking-tight text-sm text-black dark:text-white">
-                  {box.icon} {box.title}
+                  <span className="inline-block transition-transform duration-200 group-hover:scale-125 mr-1">{box.icon}</span> {box.title}
                 </h3>
               </div>
               <ul className="px-5 py-4 space-y-2">
                 {box.tips.map((tip, i) => (
-                  <li key={i} className="text-sm text-gray-700 dark:text-zinc-400 flex items-start gap-2">
+                  <li key={i} className="text-sm text-gray-700 dark:text-zinc-400 flex items-start gap-2 px-2 py-1 rounded transition-colors duration-150 hover:bg-neutral-50 dark:hover:bg-zinc-800">
                     <span className="text-gray-400 dark:text-zinc-600 mt-0.5">—</span>
                     {tip}
                   </li>
@@ -198,14 +198,14 @@ export default function SellerGuidelines() {
         </div>
 
         {/* CTA */}
-        <div className="border-2 border-black dark:border-zinc-700 p-6 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white dark:bg-zinc-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.05)] mb-10">
+        <div className="border-2 border-black dark:border-zinc-700 p-6 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white dark:bg-zinc-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.05)] mb-10 transition-all duration-200 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-[8px_8px_0px_0px_rgba(255,255,255,0.08)]">
           <div>
             <p className="font-black uppercase tracking-tight text-lg text-black dark:text-white">Ready to publish?</p>
             <p className="text-sm text-gray-600 dark:text-zinc-400">Follow the rules above and your note will be live instantly.</p>
           </div>
           <Link
             to="/upload-note"
-            className="px-6 py-3 bg-black dark:bg-white text-white dark:text-black font-black uppercase tracking-wide text-sm border-2 border-black dark:border-white hover:bg-zinc-800 dark:hover:bg-zinc-100 transition shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] whitespace-nowrap"
+            className="px-6 py-3 bg-black dark:bg-white text-white dark:text-black font-black uppercase tracking-wide text-sm border-2 border-black dark:border-white hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-all duration-150 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.4)] hover:shadow-none hover:translate-x-[4px] hover:translate-y-[4px] active:translate-x-[4px] active:translate-y-[4px] whitespace-nowrap"
           >
             🚀 Upload a Note
           </Link>

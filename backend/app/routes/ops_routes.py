@@ -5,7 +5,6 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.config import settings
 from app.database import client
-from app.services.ai_pipeline import get_ai_queue_stats
 from app.utils.dependencies import get_current_user
 
 router = APIRouter(prefix="/ops", tags=["Ops"])
@@ -18,12 +17,10 @@ def ops_health():
         client.admin.command("ping")
     except Exception:
         db_ok = False
-    queue = get_ai_queue_stats()
     return {
         "status": "ok" if db_ok else "degraded",
         "time": int(time.time()),
         "db_ok": db_ok,
-        "ai_queue": queue,
     }
 
 

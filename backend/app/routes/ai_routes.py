@@ -15,7 +15,6 @@ from app.services.hybrid_moderation import (
     analyze_with_hybrid_fallback,
     detect_personal_info,
 )
-from app.services.ai_pipeline import get_ai_queue_stats
 from app.config import settings
 
 router = APIRouter(prefix="/ai", tags=["AI Moderation (Gemini)"])
@@ -539,8 +538,6 @@ def ai_worker_health(current_user=Depends(get_current_user)):
     return {
         "status": "ok",
         "moderation_mode": mode,
-        "queue": get_ai_queue_stats(),
         "uses_paid_api": uses_paid,
         "fallback_provider": "ollama/rules" if mode == "auto" else "rules",
-        "max_attempts": settings.AI_JOB_MAX_ATTEMPTS,
     }

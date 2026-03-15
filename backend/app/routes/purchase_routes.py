@@ -62,7 +62,61 @@ def buy_note(
         save_idempotent_response(route, current_user["id"], x_idempotency_key, fingerprint, response)
         return response
 
-    # ✅ All notes unlocked for free (payments disabled)
+    note_price = int(note.get("price", 0))
+    is_paid = note.get("is_paid", False)
+
+    # ── Points purchase ───────────────────────────────────────────────────────
+    if payment_method == "points" and is_paid:
+        if note_price <= 0:
+            raise HTTPException(status_code=400, detail="Note price is invalid")
+        deducted = spend_points(
+            user_id=current_user["id"],
+            points=note_price,
+            reason="note_purchase_points",
+            meta={"note_id": note_id},
+        )
+        if not deducted:
+            raise HTTPException(status_code=400, detail=f"Insufficient points. You need {note_price} pts to unlock this note.")
+
+        result = purchases_collection.insert_one({
+            "buyer_id": ObjectId(current_user["id"]),
+            "user_id": ObjectId(current_user["id"]),
+            "note_id": ObjectId(note_id),
+            "amount": note_price,
+            "status": "success",
+            "purchase_type": "points",
+            "created_at": int(time.time()),
+        })
+        add_ledger_entry(
+            purchase_id=result.inserted_id,
+            buyer_id=ObjectId(current_user["id"]),
+            seller_id=note["uploader_id"],
+            note_id=ObjectId(note_id),
+            amount=note_price,
+            currency="PTS",
+            entry_type="points_purchase",
+            source="purchase.points",
+        )
+        # Award seller a share of points (50%)
+        seller_share = max(1, note_price // 2)
+        try:
+            award_points(
+                user_id=note["uploader_id"],
+                points=seller_share,
+                reason="note_sold_points",
+                meta={"note_id": note_id, "buyer_id": current_user["id"]},
+            )
+        except Exception:
+            pass  # non-critical: don't fail the purchase if seller credit fails
+
+        response = {"message": f"Note unlocked with {note_price} points ✅", "paid": True, "payment_method": "points"}
+        save_idempotent_response(route, current_user["id"], x_idempotency_key, fingerprint, response)
+        return response
+
+    # ── Free unlock (free notes or payment_method != "points") ────────────────
+    if is_paid and payment_method != "points":
+        raise HTTPException(status_code=400, detail="This is a paid note. Use points or complete INR payment.")
+
     result = purchases_collection.insert_one({
         "buyer_id": ObjectId(current_user["id"]),
         "user_id": ObjectId(current_user["id"]),
@@ -70,7 +124,7 @@ def buy_note(
         "amount": 0,
         "status": "success",
         "purchase_type": "free",
-        "created_at": int(time.time())
+        "created_at": int(time.time()),
     })
     add_ledger_entry(
         purchase_id=result.inserted_id,

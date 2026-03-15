@@ -65,6 +65,9 @@ def list_bundles():
             "title": b.get("title"),
             "description": b.get("description"),
             "price": b.get("price", 0),
+            "is_paid": b.get("is_paid", False),
             "note_count": len(b.get("note_ids", [])),
+            "note_ids": [str(nid) for nid in b.get("note_ids", [])],
+            "creator_id": str(b["creator_id"]) if b.get("creator_id") else None,
         })
     return out

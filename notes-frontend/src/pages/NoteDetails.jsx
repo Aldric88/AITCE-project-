@@ -229,12 +229,24 @@ export default function NoteDetails() {
 
             <div className="mt-8 border border-black bg-white">
               {note.has_access || !note.is_paid ? (
-                <iframe
-                  title="Secure Viewer"
-                  src={`${API_BASE_URL}/preview/${noteId}`}
-                  className="w-full"
-                  style={{ height: "600px" }}
-                />
+                <>
+                  {note.is_paid && note.has_access && (
+                    <div className="flex items-center justify-between border-b border-black px-4 py-2 bg-zinc-50">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                        Secure Viewer — View Only
+                      </span>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                        Downloads not available for paid notes
+                      </span>
+                    </div>
+                  )}
+                  <iframe
+                    title="Secure Viewer"
+                    src={`${API_BASE_URL}/preview/${noteId}`}
+                    className="w-full"
+                    style={{ height: "600px" }}
+                  />
+                </>
               ) : (
                 <div className="flex flex-col items-center justify-center bg-gray-50 p-8 text-center">
                   <div className="mb-4 flex h-16 w-16 items-center justify-center border-2 border-black bg-white">

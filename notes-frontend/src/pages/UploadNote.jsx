@@ -97,7 +97,11 @@ export default function UploadNote() {
       };
 
       await api.post("/notes/", payload);
-      toast.success("Note published ✅ AI approved your note!");
+      toast.success(
+        form.note_type === "pdf"
+          ? "Note published ✅ AI approved your note!"
+          : "Note published ✅"
+      );
 
       // reset
       setFile(null);
