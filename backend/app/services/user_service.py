@@ -22,12 +22,15 @@ def create_user(user_data: dict):
     user_data["can_upload"] = True
     result = users_collection.insert_one(user_data)
     if settings.INITIAL_WALLET_POINTS > 0:
-        award_points(
-            user_id=result.inserted_id,
-            points=settings.INITIAL_WALLET_POINTS,
-            reason="signup_bonus",
-            meta={"source": "auth.signup"},
-        )
+        try:
+            award_points(
+                user_id=result.inserted_id,
+                points=settings.INITIAL_WALLET_POINTS,
+                reason="signup_bonus",
+                meta={"source": "auth.signup"},
+            )
+        except Exception:
+            pass  # non-critical: signup succeeds even if bonus fails
     new_user = users_collection.find_one({"_id": result.inserted_id})
     return user_helper(new_user)
 
