@@ -26,7 +26,7 @@ class Settings(BaseModel):
     CACHE_DEFAULT_TTL_SECONDS: int = int(os.getenv("CACHE_DEFAULT_TTL_SECONDS", "60"))
     LOG_JSON: bool = os.getenv("LOG_JSON", "true").lower() == "true"
     SLOW_QUERY_THRESHOLD_MS: int = int(os.getenv("SLOW_QUERY_THRESHOLD_MS", "250"))
-ENABLE_SECURITY_HEADERS: bool = os.getenv("ENABLE_SECURITY_HEADERS", "true").lower() == "true"
+    ENABLE_SECURITY_HEADERS: bool = os.getenv("ENABLE_SECURITY_HEADERS", "true").lower() == "true"
     INITIAL_WALLET_POINTS: int = int(os.getenv("INITIAL_WALLET_POINTS", "200"))
     NOTE_PUBLISH_POINTS: int = int(os.getenv("NOTE_PUBLISH_POINTS", "15"))
     TOP_CONTRIBUTOR_BONUS_POINTS: int = int(os.getenv("TOP_CONTRIBUTOR_BONUS_POINTS", "100"))
