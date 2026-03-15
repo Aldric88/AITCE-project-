@@ -101,10 +101,10 @@ def send_otp(data: SendOtpRequest, background_tasks: BackgroundTasks):
         }},
     )
 
-    from app.utils.email_service import EMAIL_USER
+    import os
     html_body = _otp_email_html(otp, data.email)
 
-    if EMAIL_USER:
+    if os.getenv("EMAIL_USER"):
         background_tasks.add_task(
             send_email_html,
             to_email=data.email,
