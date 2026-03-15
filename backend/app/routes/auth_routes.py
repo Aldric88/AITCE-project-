@@ -97,19 +97,23 @@ def login(
     if not user:
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    token = create_access_token({"sub": user["email"], "role": user["role"]})
-    refresh_token = create_refresh_token({"sub": user["email"], "role": user["role"]})
-    refresh_payload = jwt.decode(refresh_token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+    import traceback as _tb
+    try:
+        token = create_access_token({"sub": user["email"], "role": user["role"]})
+        refresh_token = create_refresh_token({"sub": user["email"], "role": user["role"]})
+        refresh_payload = jwt.decode(refresh_token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
 
-    refresh_tokens_collection.insert_one(
-        {
-            "user_id": ObjectId(user["id"]),
-            "jti": refresh_payload.get("jti"),
-            "revoked": False,
-            "created_at": int(time.time()),
-            "expires_at": int(refresh_payload.get("exp", 0)),
-        }
-    )
+        refresh_tokens_collection.insert_one(
+            {
+                "user_id": ObjectId(user["id"]),
+                "jti": refresh_payload.get("jti"),
+                "revoked": False,
+                "created_at": int(time.time()),
+                "expires_at": int(refresh_payload.get("exp", 0)),
+            }
+        )
+    except Exception as _e:
+        raise HTTPException(status_code=500, detail=f"LOGIN_DEBUG: {type(_e).__name__}: {_e}\n{_tb.format_exc()}")
 
     response.set_cookie(
         key=settings.JWT_COOKIE_NAME,
