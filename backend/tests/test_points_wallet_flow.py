@@ -74,10 +74,9 @@ def _mock_user():
     }
 
 
-def test_paid_note_unlocks_free(monkeypatch):
-    # Payments disabled — all notes (paid or free) unlock for free
+def test_paid_note_rejects_free_unlock(monkeypatch):
+    # Paid notes cannot be unlocked without points — free method should return 400
     note_id = ObjectId()
-    buyer_id = ObjectId(_mock_user()["id"])
     seller_id = ObjectId()
 
     notes = InMemoryCollection(
@@ -108,12 +107,8 @@ def test_paid_note_unlocks_free(monkeypatch):
         headers={"X-Idempotency-Key": "free-unlock-1"},
     )
 
-    assert response.status_code == 200
-    assert response.json()["paid"] is False
-
-    purchase = purchases.find_one({"note_id": note_id, "buyer_id": buyer_id, "status": "success"})
-    assert purchase is not None
-    assert purchase["purchase_type"] == "free"
+    assert response.status_code == 400
+    assert "paid note" in response.json()["detail"].lower()
 
     app.dependency_overrides.clear()
 
