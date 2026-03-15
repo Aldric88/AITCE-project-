@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import api from "../api/axios";
+import api, { setStoredToken } from "../api/axios";
 import toast from "react-hot-toast";
 
 const PERSONAL_DOMAINS = new Set([
@@ -83,6 +83,16 @@ export default function Signup() {
     setLoading(true);
     try {
       await api.post("/auth/signup", form);
+
+      // Auto-login so ProtectedRoute allows access to /verify-email
+      const loginBody = new URLSearchParams();
+      loginBody.append("username", form.email);
+      loginBody.append("password", form.password);
+      const loginRes = await api.post("/auth/login", loginBody, {
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      });
+      setStoredToken(loginRes.data.access_token);
+
       toast.success("Account created! Please verify your college email.");
       navigate("/verify-email", { state: { email: form.email } });
     } catch (err) {

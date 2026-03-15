@@ -35,7 +35,8 @@ api.interceptors.response.use(
       url.includes("/auth/login") ||
       url.includes("/auth/signup") ||
       url.includes("/auth/logout") ||
-      url.includes("/auth/me");
+      url.includes("/auth/me") ||
+      url.includes("/verify/");
 
     if (error?.response?.status === 401 && !isAuthEndpoint) {
       setStoredToken(null);
