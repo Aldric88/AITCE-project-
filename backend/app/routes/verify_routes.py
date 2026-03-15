@@ -105,7 +105,7 @@ def send_otp(data: SendOtpRequest, background_tasks: BackgroundTasks):
     import os
     html_body = _otp_email_html(otp, data.email)
 
-    if os.getenv("EMAIL_USER"):
+    if os.getenv("RESEND_API_KEY"):
         background_tasks.add_task(
             send_email_html,
             to_email=data.email,
@@ -114,11 +114,11 @@ def send_otp(data: SendOtpRequest, background_tasks: BackgroundTasks):
         )
         return {"message": "OTP sent to your college email ✅"}
     else:
-        # Dev fallback — return OTP in response when SMTP not configured
+        # Dev fallback — return OTP in response when email not configured
         return {
             "message": "OTP generated ✅ (Email not configured — dev mode)",
             "otp": otp,
-            "note": "Configure EMAIL_USER and EMAIL_PASS in .env to send real emails",
+            "note": "Set RESEND_API_KEY in environment to send real emails",
         }
 
 
