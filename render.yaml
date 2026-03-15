@@ -68,5 +68,3 @@ services:
         value: "80"
       - key: PAYMENT_PENDING_TTL_SECONDS
         value: "1800"
-      - key: AI_JOB_MAX_ATTEMPTS
-        value: "3"
