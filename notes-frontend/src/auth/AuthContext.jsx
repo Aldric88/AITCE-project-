@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import api from "../api/axios";
+import api, { setStoredToken } from "../api/axios";
 
 const AuthContext = createContext();
 
@@ -33,6 +33,7 @@ export const AuthProvider = ({ children }) => {
     } catch {
       // no-op: clear local auth state even if backend call fails
     }
+    setStoredToken(null);
     setUser(null);
   };
 

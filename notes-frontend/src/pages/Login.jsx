@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import api from "../api/axios";
+import api, { setStoredToken } from "../api/axios";
 import { useAuth } from "../auth/AuthContext";
 import toast from "react-hot-toast";
 
@@ -22,9 +22,10 @@ export default function Login() {
       body.append("username", email);
       body.append("password", password);
 
-      await api.post("/auth/login", body, {
+      const loginRes = await api.post("/auth/login", body, {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
       });
+      setStoredToken(loginRes.data.access_token);
 
       const me = await api.get("/auth/me");
       setUser(me.data);
