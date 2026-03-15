@@ -392,3 +392,39 @@ def reject_domain_candidate(
         },
     )
     return {"message": "Domain candidate rejected", "domain": domain}
+
+
+# ── Upload violation management ───────────────────────────────────────────────
+
+@router.get("/violations")
+def list_upload_violations(current_user=Depends(require_role(["admin"]))):
+    """List users with upload violations."""
+    users = users_collection.find(
+        {"upload_violations": {"$gt": 0}},
+        {"_id": 1, "name": 1, "email": 1, "upload_violations": 1, "can_upload": 1},
+    ).sort("upload_violations", -1)
+    return [
+        {
+            "id": str(u["_id"]),
+            "name": u.get("name"),
+            "email": u.get("email"),
+            "upload_violations": u.get("upload_violations", 0),
+            "can_upload": u.get("can_upload", True),
+        }
+        for u in users
+    ]
+
+
+@router.post("/violations/{user_id}/reset")
+def reset_user_violations(user_id: str, current_user=Depends(require_role(["admin"]))):
+    """Reset a user's violation count and restore upload access."""
+    if not ObjectId.is_valid(user_id):
+        raise HTTPException(status_code=400, detail="Invalid user_id")
+    result = users_collection.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": {"upload_violations": 0, "can_upload": True}},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"message": "Violations reset and upload access restored."}
+

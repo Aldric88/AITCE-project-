@@ -14,4 +14,6 @@ def user_helper(user) -> dict:
         "cluster_id": str(user.get("cluster_id")) if user.get("cluster_id") else None,
         "verified_by_domain": user.get("verified_by_domain", False),
         "wallet_points": int(user.get("wallet_points", 0)),
+        "upload_violations": int(user.get("upload_violations", 0)),
+        "can_upload": user.get("can_upload", True),
     }

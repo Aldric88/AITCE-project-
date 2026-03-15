@@ -28,10 +28,11 @@ class UserResponse(BaseModel):
     section: str
     role: RoleType
     verified_seller: bool = False
-    
     cluster_id: Optional[str] = None
     verified_by_domain: bool = False
     wallet_points: int = 0
+    upload_violations: int = 0
+    can_upload: bool = True
 
 
 class TokenResponse(BaseModel):

@@ -96,7 +96,7 @@ export default function UploadNote() {
       };
 
       await api.post("/notes/", payload);
-      toast.success("Note created ✅ Pending approval");
+      toast.success("Note published ✅ AI approved your note!");
 
       // reset
       setFile(null);
@@ -115,17 +115,35 @@ export default function UploadNote() {
         semester: Number(user?.year) > 0 ? Math.max(1, (Number(user.year) * 2) - 1) : 1,
       });
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Create note failed");
+      const detail = err.response?.data?.detail || "Create note failed";
+      toast.error(detail, { duration: 6000 });
     }
   };
+
+  const violations = user?.upload_violations ?? 0;
+  const canUpload = user?.can_upload !== false;
 
   return (
     <Layout title="Upload Note">
       <div className="max-w-3xl mx-auto">
         <div className="border border-black bg-white p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-          <h2 className="text-3xl font-black uppercase tracking-tighter text-black mb-8 border-b border-black pb-4">
+          <h2 className="text-3xl font-black uppercase tracking-tighter text-black mb-4 border-b border-black pb-4">
             📤 Upload Notes
           </h2>
+
+          {/* Upload ban warning */}
+          {!canUpload && (
+            <div className="mb-6 p-4 border-2 border-red-600 bg-red-50 text-red-700 font-bold uppercase text-sm tracking-wide">
+              ⛔ You have been banned from uploading notes after {violations} violations. You can still browse and purchase notes.
+            </div>
+          )}
+
+          {/* Violation counter */}
+          {canUpload && violations > 0 && (
+            <div className="mb-6 p-3 border border-yellow-500 bg-yellow-50 text-yellow-800 text-sm font-bold uppercase tracking-wide">
+              ⚠️ AI Violations: {violations} / 5 — {5 - violations} warning{5 - violations !== 1 ? "s" : ""} remaining before upload ban
+            </div>
+          )}
 
           {/* NOTE TYPE SELECTOR */}
           <div className="mb-6">
@@ -331,9 +349,10 @@ export default function UploadNote() {
 
             <button
               onClick={createNote}
-              className="w-full mt-6 px-6 py-4 bg-black text-white border-2 border-black hover:bg-neutral-800 transition font-black uppercase tracking-wide text-lg shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]"
+              disabled={!canUpload}
+              className={`w-full mt-6 px-6 py-4 border-2 font-black uppercase tracking-wide text-lg transition ${canUpload ? "bg-black text-white border-black hover:bg-neutral-800 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]" : "bg-gray-300 text-gray-500 border-gray-300 cursor-not-allowed"}`}
             >
-              🚀 Publish Note
+              {canUpload ? "🚀 Publish Note" : "⛔ Upload Banned"}
             </button>
           </div>
         </div>

@@ -16,7 +16,7 @@ from app.schemas.note_schema import NoteCreate, NoteUpdate
 from app.models.note_model import note_helper
 from app.utils.dependencies import get_current_user, get_optional_current_user, require_email_verified
 from app.utils.rate_limiter import search_limiter
-from app.services.ai_pipeline import enqueue_note_ai_analysis
+from app.services.ai_pipeline import analyze_note_sync
 from app.utils.cache import cache_get_json, cache_set_json
 from app.utils.observability import log_if_slow
 from app.services.risk_service import compute_user_risk_score
@@ -41,11 +41,22 @@ def _safe_object_id(value):
     return None
 
 
-# Student uploads note (always pending) — requires verified college email
+MAX_VIOLATIONS = 5
+
+# Student uploads note — AI scans instantly, auto-approve or reject
 @router.post("/")
 def create_note(note: NoteCreate, current_user=Depends(require_email_verified)):
     new_note = note.model_dump()
     uploader_id = ObjectId(current_user["id"])
+
+    # ── Upload ban check ─────────────────────────────────────────────────────
+    db_user = users_collection.find_one({"_id": uploader_id}, {"can_upload": 1, "upload_violations": 1})
+    if db_user and db_user.get("can_upload", True) is False:
+        violations = db_user.get("upload_violations", MAX_VIOLATIONS)
+        raise HTTPException(
+            status_code=403,
+            detail=f"You have been banned from uploading notes after {violations} violations. You can still browse and purchase notes.",
+        )
 
     risk = compute_user_risk_score(
         current_user["id"],
@@ -87,8 +98,8 @@ def create_note(note: NoteCreate, current_user=Depends(require_email_verified)):
 
     # uploader info
     new_note["uploader_id"] = uploader_id
-    new_note["status"] = "pending"
-    new_note["ai"] = None  # AI analysis field
+    new_note["status"] = "pending"  # will be updated after AI scan
+    new_note["ai"] = None
     
     # ✅ Cluster assignment (Trust Architecture)
     current_cluster_id = _safe_object_id(current_user.get("cluster_id"))
@@ -192,18 +203,55 @@ def create_note(note: NoteCreate, current_user=Depends(require_email_verified)):
             {"$set": {"is_linked": True, "linked_note_id": saved_note["_id"]}},
         )
 
+    # ── AI scan: run synchronously, auto-approve or reject ───────────────────
     file_url = new_note.get("file_url")
-    if file_url:
-        enqueue_note_ai_analysis(
-            note_id=str(result.inserted_id),
-            file_url=file_url,
-            meta={
-                "title": new_note.get("title"),
-                "subject": new_note.get("subject"),
-                "dept": new_note.get("dept"),
-                "unit": new_note.get("unit"),
-            },
+    ai_result = analyze_note_sync(
+        file_url=file_url or "",
+        meta={
+            "title": new_note.get("title"),
+            "subject": new_note.get("subject"),
+            "dept": new_note.get("dept"),
+            "unit": new_note.get("unit"),
+        },
+    ) if file_url else {"approved": True, "reason": "", "ai": None}
+
+    if not ai_result["approved"]:
+        # Delete the note we just inserted
+        notes_collection.delete_one({"_id": result.inserted_id})
+        # Unlink the file
+        if file_url:
+            uploads_collection.update_one(
+                {"file_url": file_url},
+                {"$set": {"is_linked": False}, "$unset": {"linked_note_id": ""}},
+            )
+        # Increment violation counter; ban if >= MAX_VIOLATIONS
+        updated = users_collection.find_one_and_update(
+            {"_id": uploader_id},
+            {"$inc": {"upload_violations": 1}},
+            return_document=True,
         )
+        new_violations = int(updated.get("upload_violations", 1))
+        if new_violations >= MAX_VIOLATIONS:
+            users_collection.update_one(
+                {"_id": uploader_id},
+                {"$set": {"can_upload": False}},
+            )
+            raise HTTPException(
+                status_code=403,
+                detail=f"Upload rejected: {ai_result['reason']} — You have reached {MAX_VIOLATIONS} violations and can no longer upload notes.",
+            )
+        remaining = MAX_VIOLATIONS - new_violations
+        raise HTTPException(
+            status_code=422,
+            detail=f"Upload rejected: {ai_result['reason']} — Warning {new_violations}/{MAX_VIOLATIONS}. {remaining} warning{'s' if remaining != 1 else ''} remaining before upload ban.",
+        )
+
+    # Approved — update note status
+    update_fields = {"status": "approved", "approved_at": int(time.time())}
+    if ai_result["ai"]:
+        update_fields["ai"] = ai_result["ai"]
+    notes_collection.update_one({"_id": result.inserted_id}, {"$set": update_fields})
+    saved_note = notes_collection.find_one({"_id": result.inserted_id})
 
     return note_helper(saved_note)
 

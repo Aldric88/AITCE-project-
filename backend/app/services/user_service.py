@@ -18,6 +18,8 @@ def create_user(user_data: dict):
     user_data["email_otp"] = None
     user_data["email_otp_expiry"] = None
     user_data["wallet_points"] = 0
+    user_data["upload_violations"] = 0
+    user_data["can_upload"] = True
     result = users_collection.insert_one(user_data)
     if settings.INITIAL_WALLET_POINTS > 0:
         award_points(

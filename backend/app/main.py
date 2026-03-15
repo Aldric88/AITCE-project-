@@ -8,7 +8,6 @@ from fastapi.staticfiles import StaticFiles
 from app.routes.auth_routes import router as auth_router
 from app.routes.admin_routes import router as admin_router
 from app.routes.note_routes import router as notes_router
-from app.routes.note_moderation_routes import router as note_moderation_router
 from app.routes.file_routes import router as file_router
 from app.routes.like_routes import router as like_router
 from app.routes.bookmark_routes import router as bookmark_router
@@ -85,7 +84,7 @@ app.mount("/uploads/profile", StaticFiles(directory="uploads/profile"), name="pr
 app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(notes_router)
-app.include_router(note_moderation_router)
+# note_moderation_router removed — AI auto-moderation replaces human moderation
 app.include_router(note_features_router)
 app.include_router(file_router)
 app.include_router(like_router)
