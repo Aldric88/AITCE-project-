@@ -181,6 +181,26 @@ def confirm_otp(data: VerifyOtpRequest):
 
 
 
+@router.get("/resend-test")
+def resend_test(to: str):
+    """Diagnostic: send a test email synchronously and return exact Resend API result."""
+    import json, urllib.request, urllib.error
+    api_key = os.getenv("RESEND_API_KEY", "")
+    email_from = os.getenv("EMAIL_FROM", "Notes Market <onboarding@resend.dev>")
+    if not api_key:
+        return {"ok": False, "error": "RESEND_API_KEY not set"}
+    payload = json.dumps({"from": email_from, "to": [to], "subject": "Notes Market — Test Email", "html": "<p>Test email from Notes Market backend.</p>"}).encode()
+    req = urllib.request.Request("https://api.resend.com/emails", data=payload,
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return {"ok": True, "resend_response": json.loads(resp.read().decode()), "from": email_from, "to": to}
+    except urllib.error.HTTPError as e:
+        return {"ok": False, "http_status": e.code, "resend_error": json.loads(e.read().decode()), "from": email_from, "to": to}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
 @router.get("/status")
 def verification_status(email: str):
     """Quick status check — used by frontend to poll after sending OTP."""
