@@ -4,6 +4,7 @@ import Layout from "../components/Layout";
 import api from "../api/axios";
 import toast from "react-hot-toast";
 import { useAuth } from "../auth/AuthContext";
+import { Upload, ShieldX, AlertTriangle, Zap, CheckCircle2 } from "lucide-react";
 
 export default function UploadNote() {
   const { user } = useAuth();
@@ -132,14 +133,16 @@ export default function UploadNote() {
     <Layout title="Upload Note">
       <div className="max-w-3xl mx-auto">
         <div className="border border-black bg-white p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-          <h2 className="text-3xl font-black uppercase tracking-tighter text-black mb-4 border-b border-black pb-4">
-            📤 Upload Notes
+          <h2 className="text-3xl font-black uppercase tracking-tighter text-black mb-4 border-b border-black pb-4 flex items-center gap-3">
+            <Upload size={28} strokeWidth={2.5} />
+            Upload Notes
           </h2>
 
           {/* Upload ban warning */}
           {!canUpload && (
-            <div className="mb-6 p-4 border-2 border-red-600 bg-red-50 text-red-700 font-bold uppercase text-sm tracking-wide">
-              ⛔ You have been banned from uploading notes after {violations} violations. You can still browse and purchase notes.
+            <div className="mb-6 p-4 border-2 border-red-600 bg-red-50 text-red-700 font-bold uppercase text-sm tracking-wide flex items-center gap-3">
+              <ShieldX size={20} strokeWidth={2.5} className="shrink-0" />
+              You have been banned from uploading notes after {violations} violations. You can still browse and purchase notes.
             </div>
           )}
 
@@ -153,8 +156,9 @@ export default function UploadNote() {
 
           {/* Violation counter */}
           {canUpload && violations > 0 && (
-            <div className="mb-6 p-3 border border-yellow-500 bg-yellow-50 text-yellow-800 text-sm font-bold uppercase tracking-wide">
-              ⚠️ AI Violations: {violations} / 5 — {5 - violations} warning{5 - violations !== 1 ? "s" : ""} remaining before upload ban
+            <div className="mb-6 p-3 border border-yellow-500 bg-yellow-50 text-yellow-800 text-sm font-bold uppercase tracking-wide flex items-center gap-3">
+              <AlertTriangle size={18} strokeWidth={2.5} className="shrink-0" />
+              AI Violations: {violations} / 5 — {5 - violations} warning{5 - violations !== 1 ? "s" : ""} remaining before upload ban
             </div>
           )}
 
@@ -201,8 +205,8 @@ export default function UploadNote() {
 
               <p className="text-xs font-bold uppercase tracking-wide text-gray-400 mt-4">
                 Uploaded file_url:{" "}
-                <span className="text-black bg-gray-200 px-1">
-                  {fileUrl ? "✅ FILE READY" : "PENDING..."}
+                <span className="text-black bg-gray-200 px-1 inline-flex items-center gap-1">
+                  {fileUrl ? <><CheckCircle2 size={13} strokeWidth={2.5} className="text-emerald-600" /> FILE READY</> : "PENDING..."}
                 </span>
               </p>
             </div>
@@ -365,7 +369,11 @@ export default function UploadNote() {
               disabled={!canUpload}
               className={`w-full mt-6 px-6 py-4 border-2 font-black uppercase tracking-wide text-lg transition ${canUpload ? "bg-black text-white border-black hover:bg-neutral-800 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]" : "bg-gray-300 text-gray-500 border-gray-300 cursor-not-allowed"}`}
             >
-              {canUpload ? "🚀 Publish Note" : "⛔ Upload Banned"}
+              {canUpload ? (
+                <span className="inline-flex items-center gap-2"><Zap size={20} strokeWidth={2.5} /> Publish Note</span>
+              ) : (
+                <span className="inline-flex items-center gap-2"><ShieldX size={20} strokeWidth={2.5} /> Upload Banned</span>
+              )}
             </button>
           </div>
         </div>
