@@ -104,7 +104,7 @@ def send_otp(data: SendOtpRequest, background_tasks: BackgroundTasks):
 
     html_body = _otp_email_html(otp, data.email)
 
-    if os.getenv("RESEND_API_KEY"):
+    if os.getenv("BREVO_API_KEY"):
         background_tasks.add_task(
             send_email_html,
             to_email=data.email,
@@ -117,7 +117,7 @@ def send_otp(data: SendOtpRequest, background_tasks: BackgroundTasks):
         return {
             "message": "OTP generated ✅ (Email not configured — dev mode)",
             "otp": otp,
-            "note": "Set RESEND_API_KEY in environment to send real emails",
+            "note": "Set BREVO_API_KEY in environment to send real emails",
         }
 
 
