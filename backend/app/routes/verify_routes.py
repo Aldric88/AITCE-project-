@@ -102,7 +102,6 @@ def send_otp(data: SendOtpRequest, background_tasks: BackgroundTasks):
         }},
     )
 
-    import os
     html_body = _otp_email_html(otp, data.email)
 
     if os.getenv("RESEND_API_KEY"):
@@ -180,25 +179,6 @@ def confirm_otp(data: VerifyOtpRequest):
 
     return {"message": "Email verified successfully ✅ Welcome to Notes Market!"}
 
-
-@router.get("/email-test")
-def email_test():
-    """Diagnostic: test SMTP config synchronously and return result."""
-    user = os.getenv("EMAIL_USER", "")
-    pw = os.getenv("EMAIL_PASS", "")
-    host = os.getenv("EMAIL_HOST", "smtp.gmail.com")
-    port = int(os.getenv("EMAIL_PORT", "587"))
-    if not user or not pw:
-        return {"ok": False, "error": f"EMAIL_USER={'SET' if user else 'MISSING'} EMAIL_PASS={'SET' if pw else 'MISSING'}"}
-    try:
-        import smtplib
-        server = smtplib.SMTP(host, port, timeout=15)
-        server.starttls()
-        server.login(user, pw)
-        server.quit()
-        return {"ok": True, "email_user": user, "host": host, "port": port}
-    except Exception as e:
-        return {"ok": False, "error": str(e), "email_user": user}
 
 
 @router.get("/status")

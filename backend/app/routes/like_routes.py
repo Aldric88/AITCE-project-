@@ -2,21 +2,11 @@ import time
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.database import notes_collection, likes_collection, leaderboard_collection
+from app.database import notes_collection, likes_collection
 from app.utils.dependencies import get_current_user
+from app.services.points_service import award_points
 
 router = APIRouter(prefix="/likes", tags=["Likes"])
-
-
-def add_points(user_id: str, points: int, reason: str):
-    leaderboard_collection.insert_one(
-        {
-            "user_id": ObjectId(user_id),
-            "points": points,
-            "reason": reason,
-            "created_at": int(time.time()),
-        }
-    )
 
 
 @router.get("/my")
@@ -70,9 +60,11 @@ def like_note(note_id: str, current_user=Depends(get_current_user)):
         }
     )
 
-    # +1 points to uploader
-    uploader_id = str(note["uploader_id"])
-    add_points(uploader_id, 1, "Got a like")
+    # +1 point to uploader wallet
+    try:
+        award_points(user_id=note["uploader_id"], points=1, reason="note_liked", meta={"note_id": note_id, "liked_by": current_user["id"]})
+    except Exception:
+        pass  # non-critical
 
     return {"message": "Liked ✅"}
 
