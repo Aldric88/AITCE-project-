@@ -181,22 +181,28 @@ def confirm_otp(data: VerifyOtpRequest):
 
 
 
-@router.get("/resend-test")
-def resend_test(to: str):
-    """Diagnostic: send a test email synchronously and return exact Resend API result."""
+@router.get("/email-test")
+def email_test(to: str):
+    """Diagnostic: send a test email via Brevo synchronously and return exact API result."""
     import json, urllib.request, urllib.error
-    api_key = os.getenv("RESEND_API_KEY", "")
-    email_from = os.getenv("EMAIL_FROM", "Notes Market <onboarding@resend.dev>")
+    api_key = os.getenv("BREVO_API_KEY", "")
+    from_name = os.getenv("EMAIL_FROM_NAME", "Notes Market")
+    from_addr = os.getenv("EMAIL_FROM_ADDRESS", "noreply@notesmarket.app")
     if not api_key:
-        return {"ok": False, "error": "RESEND_API_KEY not set"}
-    payload = json.dumps({"from": email_from, "to": [to], "subject": "Notes Market — Test Email", "html": "<p>Test email from Notes Market backend.</p>"}).encode()
-    req = urllib.request.Request("https://api.resend.com/emails", data=payload,
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}, method="POST")
+        return {"ok": False, "error": "BREVO_API_KEY not set"}
+    payload = json.dumps({
+        "sender": {"name": from_name, "email": from_addr},
+        "to": [{"email": to}],
+        "subject": "Notes Market — Test Email",
+        "htmlContent": "<p>Test email from Notes Market backend via Brevo.</p>",
+    }).encode()
+    req = urllib.request.Request("https://api.brevo.com/v3/smtp/email", data=payload,
+        headers={"api-key": api_key, "Content-Type": "application/json", "Accept": "application/json"}, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
-            return {"ok": True, "resend_response": json.loads(resp.read().decode()), "from": email_from, "to": to}
+            return {"ok": True, "brevo_response": json.loads(resp.read().decode()), "from": f"{from_name} <{from_addr}>", "to": to}
     except urllib.error.HTTPError as e:
-        return {"ok": False, "http_status": e.code, "resend_error": json.loads(e.read().decode()), "from": email_from, "to": to}
+        return {"ok": False, "http_status": e.code, "brevo_error": json.loads(e.read().decode()), "from": f"{from_name} <{from_addr}>", "to": to}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 

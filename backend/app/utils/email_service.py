@@ -9,10 +9,11 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
-EMAIL_FROM = os.getenv("EMAIL_FROM", "Notes Market <onboarding@resend.dev>")
+BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
+EMAIL_FROM_NAME = os.getenv("EMAIL_FROM_NAME", "Notes Market")
+EMAIL_FROM_ADDRESS = os.getenv("EMAIL_FROM_ADDRESS", "noreply@notesmarket.app")
 
-print(f"[email_service] RESEND_API_KEY={'SET ✅' if RESEND_API_KEY else 'NOT SET ❌'}", flush=True)
+print(f"[email_service] BREVO_API_KEY={'SET ✅' if BREVO_API_KEY else 'NOT SET ❌'}", flush=True)
 
 
 def send_email(to_email: str, subject: str, body: str) -> bool:
@@ -20,23 +21,24 @@ def send_email(to_email: str, subject: str, body: str) -> bool:
 
 
 def send_email_html(to_email: str, subject: str, html_body: str) -> bool:
-    if not RESEND_API_KEY:
-        logger.warning("⚠️ RESEND_API_KEY not set — skipping email send")
+    if not BREVO_API_KEY:
+        logger.warning("⚠️ BREVO_API_KEY not set — skipping email send")
         return False
 
     payload = json.dumps({
-        "from": EMAIL_FROM,
-        "to": [to_email],
+        "sender": {"name": EMAIL_FROM_NAME, "email": EMAIL_FROM_ADDRESS},
+        "to": [{"email": to_email}],
         "subject": subject,
-        "html": html_body,
+        "htmlContent": html_body,
     }).encode()
 
     req = urllib.request.Request(
-        "https://api.resend.com/emails",
+        "https://api.brevo.com/v3/smtp/email",
         data=payload,
         headers={
-            "Authorization": f"Bearer {RESEND_API_KEY}",
+            "api-key": BREVO_API_KEY,
             "Content-Type": "application/json",
+            "Accept": "application/json",
         },
         method="POST",
     )
@@ -44,11 +46,11 @@ def send_email_html(to_email: str, subject: str, html_body: str) -> bool:
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
             result = json.loads(resp.read().decode())
-            logger.info(f"✅ Email sent via Resend to {to_email}: id={result.get('id')}")
+            logger.info(f"✅ Email sent via Brevo to {to_email}: messageId={result.get('messageId')}")
             return True
     except urllib.error.HTTPError as e:
         body = e.read().decode()
-        logger.error(f"❌ Resend API error {e.code} to {to_email}: {body}")
+        logger.error(f"❌ Brevo API error {e.code} to {to_email}: {body}")
         return False
     except Exception as e:
         logger.error(f"❌ Email send failed to {to_email}: {e}")
